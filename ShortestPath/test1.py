@@ -34,6 +34,22 @@ graph = {
     13: {10: 1, 12: 1}
 }
 
+congestion = {
+    1: {2: 1, 4: 1},
+    2: {1: 1, 3: 1},
+    3: {2: 1, 5: 1},
+    4: {1: 1, 6: 1},
+    5: {3: 1, 8: 1},
+    6: {4: 1, 7: 1, 9: 1},
+    7: {6: 1, 8: 1},
+    8: {5: 1, 7: 1, 10: 1},
+    9: {6: 1, 11: 1},
+    10: {8: 1, 13: 1},
+    11: {9: 1, 12: 1},
+    12: {11: 1, 13: 1},
+    13: {10: 1, 12: 1}
+}
+
 # # 노드의 혼잡도를 가정
 # congestion = {
 #     1: 1, 2: 1.5, 3: 2, 4: 1, 5: 1.8, 6: 1.2, 7: 1, 8: 1.6, 9: 2, 10: 1, 11: 1.1, 12: 1.4, 13: 1
@@ -81,9 +97,11 @@ import heapq
 
 def heuristic(a, b):
     # 휴리스틱 함수: 여기서는 간단하게 두 노드 간 차이만 계산 (유클리드 거리는 필요하지 않음)
-    return abs(a - b)
+    # 예측용 함수로 모든 계산을 하기 전에 대략적인 예측을 하여 가능성 높은곳만 계산하도록 도와줌
+    return 0
 
-def a_star(graph, start, goal):
+def a_star(graph, congestion, start, goal):
+    """경로를 계산하여 반환하는 함수"""
     pq = []
     heapq.heappush(pq, (0, start))
     came_from = {start: None}
@@ -96,7 +114,7 @@ def a_star(graph, start, goal):
             break
         
         for next_node in graph[current]:
-            new_cost = cost_so_far[current] + graph[current][next_node]
+            new_cost = cost_so_far[current] + graph[current][next_node] + congestion[current][next_node]
             if next_node not in cost_so_far or new_cost < cost_so_far[next_node]:
                 cost_so_far[next_node] = new_cost
                 priority = new_cost + heuristic(goal, next_node)
@@ -114,9 +132,9 @@ def a_star(graph, start, goal):
     return path
 
 # start와 goal을 정수로 설정
-start = 1
-goal = 8
+start = 12
+goal = 6
 
 # 최단 경로 탐색
-path = a_star(graph, start, goal)
+path = a_star(graph, congestion,  start, goal)
 print(f"최단 경로: {path}")
