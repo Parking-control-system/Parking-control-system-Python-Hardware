@@ -1,36 +1,48 @@
-from test1 import a_star
+import threading
+import time
+import queue
+import yolo_tracking as yolo
+import shortest_route as sr
+import uart
 
-# 에이스타 인접 리스트
-graph = {
-    1: {2: 1, 4: 1},
-    2: {1: 1, 3: 1},
-    3: {2: 1, 5: 1},
-    4: {1: 1, 6: 1},
-    5: {3: 1, 8: 1},
-    6: {4: 1, 7: 1, 9: 1},
-    7: {6: 1, 8: 1},
-    8: {5: 1, 7: 1, 10: 1},
-    9: {6: 1, 11: 1},
-    10: {8: 1, 13: 1},
-    11: {9: 1, 12: 1},
-    12: {11: 1, 13: 1},
-    13: {10: 1, 12: 1}
-}
+# 프로그램 종료 플래그
+stop_event = threading.Event()
 
-congestion = {
-    1: {2: 0, 4: 0},
-    2: {1: 0, 3: 0},
-    3: {2: 0, 5: 0},
-    4: {1: 0, 6: 0},
-    5: {3: 0, 8: 0},
-    6: {4: 0, 7: 0, 9: 0},
-    7: {6: 0, 8: 0},
-    8: {5: 0, 7: 0, 10: 0},
-    9: {6: 0, 11: 0},
-    10: {8: 0, 13: 0},
-    11: {9: 0, 12: 0},
-    12: {11: 0, 13: 0},
-    13: {10: 0, 12: 0}
-}
+# 공유할 데이터 큐
+yolo_data_queue = queue.Queue()
+car_number_data_queue = queue.Queue()
 
-route = a_star(graph, congestion, 1, 13)
+# 4. 경로를 서버와 Arduino로 전송 (무한 반복)
+def send_path_to_server_and_arduino():
+    while not stop_event.is_set():
+        # print("경로를 서버와 Arduino로 전송 중...")
+        time.sleep(5)
+
+# 쓰레드 생성
+thread1 = threading.Thread(target=yolo.track_vehicles, kwargs={"yolo_data_queue": yolo_data_queue})
+thread2 = threading.Thread(target=sr.calculate_optimal_path, kwargs={"yolo_data_queue": yolo_data_queue, "car_number_data_queue": car_number_data_queue})
+thread3 = threading.Thread(target=uart.get_car_number, kwargs={"car_number_data_queue": car_number_data_queue})
+thread4 = threading.Thread(target=send_path_to_server_and_arduino)
+
+# 쓰레드 시작
+thread1.start()
+thread2.start()
+thread3.start()
+thread4.start()
+
+try:
+    # 메인 프로그램을 무한 대기 상태로 유지
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    # 키보드 인터럽트 발생 시 쓰레드 종료
+    print("프로그램 종료 중...")
+    stop_event.set()
+
+# 모든 쓰레드가 종료될 때까지 대기
+thread1.join()
+thread2.join()
+thread3.join()
+thread4.join()
+
+print("프로그램이 정상적으로 종료되었습니다.")
