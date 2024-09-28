@@ -2,6 +2,7 @@ import threading
 import time
 import queue
 import yolo_tracking as yolo
+import test_file.yolo_tracking_mock as yolo_mock
 import shortest_route as sr
 import uart
 
@@ -11,6 +12,7 @@ stop_event = threading.Event()
 # 공유할 데이터 큐
 yolo_data_queue = queue.Queue()
 car_number_data_queue = queue.Queue()
+route_data_queue = queue.Queue()
 
 # 4. 경로를 서버와 Arduino로 전송 (무한 반복)
 def send_path_to_server_and_arduino():
@@ -19,8 +21,9 @@ def send_path_to_server_and_arduino():
         time.sleep(5)
 
 # 쓰레드 생성
-thread1 = threading.Thread(target=yolo.track_vehicles, kwargs={"yolo_data_queue": yolo_data_queue})
-thread2 = threading.Thread(target=sr.calculate_optimal_path, kwargs={"yolo_data_queue": yolo_data_queue, "car_number_data_queue": car_number_data_queue})
+# thread1 = threading.Thread(target=yolo.track_vehicles, kwargs={"yolo_data_queue": yolo_data_queue})
+thread1 = threading.Thread(target=yolo_mock.track_vehicles, kwargs={"yolo_data_queue": yolo_data_queue})
+thread2 = threading.Thread(target=sr.main, kwargs={"yolo_data_queue": yolo_data_queue, "car_number_data_queue": car_number_data_queue, "route_data_queue": route_data_queue})
 thread3 = threading.Thread(target=uart.get_car_number, kwargs={"car_number_data_queue": car_number_data_queue})
 thread4 = threading.Thread(target=send_path_to_server_and_arduino)
 

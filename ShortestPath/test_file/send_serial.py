@@ -2,7 +2,7 @@ import serial
 import time
 
 # 송신 포트 설정 (예: /dev/ttys002)
-ser = serial.Serial('/dev/ttys043', 9600, timeout=1)
+ser = serial.Serial('/dev/ttys033', 9600, timeout=1)
 
 # 데이터 송신
 try:
