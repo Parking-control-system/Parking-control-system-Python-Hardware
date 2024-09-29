@@ -8,8 +8,9 @@ def track_vehicles(yolo_data_queue):
         # 차량과 주차 공간 정보 생성 (예시 데이터)
         tracking_data = {
             "vehicles": [
-                {"id": i, "position": (random.randint(0, 400), random.randint(0, 400)), "speed": 20 + i, "direction": "north", \
-                 "status": "moving"} for i in range(3)
+                # {"id": i, "position": (random.randint(0, 400), random.randint(0, 400)), "speed": 20 + i, "direction": "north", \
+                #  "status": "moving"} for i in range(3)
+                {"id": 0, "position": (250, 250), "speed": 20, "direction": "north", "status": "moving"},
             ]
         }
         # print(f"1번 쓰레드: 차량 및 주차 정보 생성: {tracking_data}")
