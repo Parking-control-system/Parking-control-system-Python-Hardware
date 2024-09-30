@@ -11,23 +11,8 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
         # 데이터 처리
         vehicles = tracking_data["vehicles"]
 
-        car_number = None
-
-        # 라즈베리 파이로부터 차량 번호 수신
-        if car_number_data_queue.qsize() > 0:
-            car_number = car_number_data_queue.get()
-            print(f"2번 쓰레드: 라즈베리 파이로부터 수신한 차량 번호: {car_number}")
-
         parking_positions = {}  # 주차한 차량의 위치 정보
         walking_positions = {}  # 이동 중인 차량의 위치 정보
-
-        # 차량 번호를 차량에 매핑
-        if car_number:
-            for vehicle in vehicles:
-                if entry_x[0] <= vehicle["position"][0] <= entry_x[1]\
-                and entry_y[0] <= vehicle["position"][1] <= entry_y[1]:
-                    car_numbers[vehicle["id"]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number)}
-                    print(f"2번 쓰레드: 차량 {vehicle['id']}의 번호: {car_number}")
 
         print(parking_positions)
 
@@ -37,11 +22,19 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
         set_parking_space(parking_positions)
         set_walking_space(walking_positions)
 
+        if 1 in walking_positions:
+            print("입차 하는 차량이 있습니다.")
+            if car_number_data_queue.qsize() > 0:
+                car_number = car_number_data_queue.get()
+                print(f"2번 쓰레드: 라즈베리 파이로부터 수신한 차량 번호: {car_number}")
+                car_numbers[walking_positions[1]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number), "route": []}
+                print(car_numbers)
+
         vehicles_to_route = {}  # 경로를 계산할 차량
 
         # 이동 구역에 있는 차량이 경로가 없는 경우 또는 경로에서 벗어난 경우
         for key, value in walking_positions.items():
-            if not car_numbers[value]["route"] or key not in car_numbers[value]["route"]:
+            if value in car_numbers and (not car_numbers[value]["route"] or key not in car_numbers[value]["route"]):
                 decrease_congestion(car_numbers[value]["route"])
                 car_numbers[value]["route"] = []
                 vehicles_to_route[key] = value
@@ -70,9 +63,10 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
         print("이동 중인 차량: ", walking_positions)
         print(car_numbers)
 
-        print(parking_space)
+        # print(parking_space)
 
-
+        # 차량 데이터 전송
+        route_data_queue.put(car_numbers)
 
         yolo_data_queue.task_done()  # 처리 완료 신호
 
@@ -284,7 +278,7 @@ car_numbers = {
     # status = entry, parking, exit
     # parking = 상태가 entry일 경우에는 주차할 구역, parking일 경우에는 주차한 구역
     # id: {"car_number": "1234", "status": "entry", "parking": 0}
-    0: {"car_number": "12가1234", "status": "entry", "parking": 21, "route": []},
+    # 0: {"car_number": "12가1234", "status": "entry", "parking": 21, "route": []},
 }
 
 # 경로
