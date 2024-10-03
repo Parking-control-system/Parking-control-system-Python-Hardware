@@ -1,6 +1,7 @@
 import heapq
 import time
 
+# TODO 최초 실행 시 주차되어 있는 차들 id 직접 부여 하는 코드 추가
 
 def main(yolo_data_queue, car_number_data_queue, route_data_queue):
     """차량 추적 데이터와 차량 번호 데이터를 받아오는 메인 함수"""
@@ -15,10 +16,6 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
 
         parking_positions = {}  # 주차한 차량의 위치 정보 {구역 아이디: 차량 아이디}
         walking_positions = {}  # 이동 중인 차량의 위치 정보 {구역 아이디: 차량 아이디}
-
-        # TODO 지정된 장소가 아닌 다른 곳에 주차할 경우 parking_space의 status 변경
-        # TODO 경로를 따라 이동 시 지나온 경로를 제외시켜 혼잡도 실시간으로 변경
-        # TODO 차량이 있는 구역 혼잡도 증가, 차량이 빠지면 혼잡도 감소
 
         print(parking_positions)
 
@@ -41,22 +38,33 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
 
         # 이동 구역에 있는 차량이 경로가 없는 경우 또는 경로에서 벗어난 경우
         for key, value in walking_positions.items():
-            if value in car_numbers and car_numbers[value]["status"] == "entry" and (not car_numbers[value]["route"] or key not in car_numbers[value]["route"]):
-                decrease_congestion(car_numbers[value]["route"])
+            temp_route = car_numbers[value]["route"]
+            if value in car_numbers and car_numbers[value]["status"] == "entry" and (not temp_route or key not in temp_route):
+                decrease_congestion(temp_route)
                 car_numbers[value]["route"] = []
                 vehicles_to_route[key] = value
 
             # 주차 후 출구로 이동하는 경우
-            elif value in car_numbers and car_numbers[value]["status"] == "parking" and (not car_numbers[value]["route"] or key not in car_numbers[value]["route"]):
-                decrease_congestion(car_numbers[value]["route"])
-                car_numbers[value]["route"] = []
+            elif value in car_numbers and car_numbers[value]["status"] == "parking" and (not temp_route or key not in temp_route):
+                decrease_congestion(temp_route)
+                car_numbers[value]["route"] = []    # 경로 비우기
                 parking_space[car_numbers[value]["parking"]]["status"] = "empty"    # 주차 공간 비우기
                 car_numbers[value]["parking"] = -1  # 출구로 설정
                 vehicles_to_route[key] = value
 
+            # 차량이 경로를 따라 가고 있는 경우
+            elif value in car_numbers and key in temp_route:
+                temp_index = temp_route.index(key)  # 경로 상에서 현재 위치의 인덱스
+                # 경로의 첫번째 위치면 스킵
+                if temp_index == 0:
+                    continue
+                decrease_congestion_target_in_route(temp_route, key)
+                car_numbers[value]["route"] = temp_route[temp_index:]    # 경로 수정
+
+
         print("경로 계산할 차량 ", vehicles_to_route)
 
-        # 이동 중인 차량의 경로 계산
+        # 경로를 계산할 차량이 있는 경우 - 이동 중인 차량의 경로 계산
         for key, value in vehicles_to_route.items():
             parking_goal = get_walking_space_for_parking_space(car_numbers[value]["parking"])
             print("경로 계산", key, parking_goal)
@@ -66,7 +74,9 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
             # 경로 상에 비어있는 주차 공간이 있는 경우 경로 변경
             if amend_goal is not None:
                 route = route[:route.index(amend_goal) + 1]
-                car_numbers[walking_positions[key]]["parking"] = amend_parking_space
+                parking_space[car_numbers[value]["parking"]]["status"] = "empty"    # 이전 주차 공간 비우기
+                # car_numbers[walking_positions[key]]["parking"] = amend_parking_space
+                car_numbers[value]["parking"] = amend_parking_space # 추자 공간 변경
 
             print(route)
             increase_congestion(route)
@@ -78,6 +88,7 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
         print(car_numbers)
 
         print(parking_space)
+        print(congestion)
 
         # 차량 데이터 전송
         route_data_queue.put(car_numbers)
@@ -85,6 +96,17 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
         yolo_data_queue.task_done()  # 처리 완료 신호
 
 
+# 경로 내의 특정 구역까지의 혼잡도를 감소시키는 함수
+def decrease_congestion_target_in_route(arg_route, arg_target):
+    """경로 내의 특정 구역까지의 혼잡도를 감소시키는 함수"""
+    for node in arg_route:
+        if node == arg_target:
+            break
+        for next_node in congestion[node]:
+            congestion[node][next_node] -= 2
+
+
+# 차량의 정지 시간을 기록하는 함수
 def vehicle_stop_time(arg_vehicle):
     """차량의 정지 시간을 기록하는 함수"""
     vehicle_id = arg_vehicle["id"]
