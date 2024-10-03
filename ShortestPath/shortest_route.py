@@ -1,10 +1,31 @@
 import heapq
 import time
 
-# TODO 최초 실행 시 주차되어 있는 차들 id 직접 부여 하는 코드 추가
+def main(yolo_data_queue, car_number_data_queue, route_data_queue, event):
 
-def main(yolo_data_queue, car_number_data_queue, route_data_queue):
+    init(yolo_data_queue)
+
+    event.set()
+
+    roop(yolo_data_queue, car_number_data_queue, route_data_queue)
+
+# 최초 주차된 차량 아이디 부여
+def init(yolo_data_queue):
+    tracking_data = yolo_data_queue.get()["vehicles"]
+
+    print(tracking_data)
+    print(tracking_data[1])
+
+    for key, value in tracking_data.items():
+        print(key)
+        print(value)
+        car_number = input(f"id {key}번 차량 번호: ")
+        set_car_numbers[car_number] = value["position"]
+
+def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
     """차량 추적 데이터와 차량 번호 데이터를 받아오는 메인 함수"""
+
+    print(set_car_numbers)
     while True:
         # 큐에서 데이터 가져오기
         tracking_data = yolo_data_queue.get()
@@ -14,17 +35,26 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
         # 데이터 처리
         vehicles = tracking_data["vehicles"]
 
+        print(vehicles)
+
+        # 최초 실행의 경우 주차된 차량 아이디 부여
+        if isFirst:
+            isFirst_func(vehicles)
+
         parking_positions = {}  # 주차한 차량의 위치 정보 {구역 아이디: 차량 아이디}
         walking_positions = {}  # 이동 중인 차량의 위치 정보 {구역 아이디: 차량 아이디}
 
         print(parking_positions)
 
-        for vehicle in vehicles:
-            check_position(vehicle, parking_positions, walking_positions)
-            vehicle_stop_time(vehicle)  # 차량이 멈춘 시간을 기록
+        for car_id, value in vehicles.items():
+            check_position(car_id, value, parking_positions, walking_positions)
 
         set_parking_space(parking_positions)
         set_walking_space(walking_positions)
+
+        # 주차 구역 차량 시간 기록 또는 주차 처리
+        for key, value in parking_positions.items():
+            vehicle_parking_time(key, value)
 
         if 1 in walking_positions:
             print("입차 하는 차량이 있습니다.")
@@ -38,6 +68,7 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
 
         # 이동 구역에 있는 차량이 경로가 없는 경우 또는 경로에서 벗어난 경우
         for key, value in walking_positions.items():
+            vehicle_moving(key) # 주차 시간 삭제
             temp_route = car_numbers[value]["route"]
             if value in car_numbers and car_numbers[value]["status"] == "entry" and (not temp_route or key not in temp_route):
                 decrease_congestion(temp_route)
@@ -71,7 +102,7 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue):
             route = a_star(graph, congestion, key, parking_goal)
             amend_goal, amend_parking_space = check_route(route[:-1])
 
-            # 경로 상에 비어있는 주차 공간이 있는 경우 경로 변경
+            # 경로 상에 비어있는 주차 공간이 있는 경우 경로 및 주차 공간 변경
             if amend_goal is not None:
                 route = route[:route.index(amend_goal) + 1]
                 parking_space[car_numbers[value]["parking"]]["status"] = "empty"    # 이전 주차 공간 비우기
@@ -105,26 +136,43 @@ def decrease_congestion_target_in_route(arg_route, arg_target):
         for next_node in congestion[node]:
             congestion[node][next_node] -= 2
 
+# 차량이 주차 구역에 들어온 시간을 기록하는 함수
+def vehicle_parking_time(arg_space, arg_vehicle_id):
+    """차량이 주차 구역에 들어온 시간을 기록하는 함수"""
 
-# 차량의 정지 시간을 기록하는 함수
-def vehicle_stop_time(arg_vehicle):
-    """차량의 정지 시간을 기록하는 함수"""
-    vehicle_id = arg_vehicle["id"]
-
-    # 차량의 상태가 정지인 경우
-    if arg_vehicle["status"] == "stopped":
-        if vehicle_id not in stop_times:
-            stop_times[vehicle_id] = time.time()
-        else:
-            if time.time() - stop_times[vehicle_id] >= 5:
-                car_numbers[vehicle_id]["status"] = "parking"
-                car_numbers[vehicle_id]["parking_time"] = stop_times[vehicle_id]
-                car_numbers[vehicle_id]["route"] = []   # 주차 시 경로 초기화
-
-    # 움직이는 경우
+    # 주차 구역에 처음 들어온 경우 (이전 시간이 없는 경우)
+    if arg_vehicle_id not in stop_times:
+        stop_times[arg_vehicle_id] = time.time()
     else:
-        if vehicle_id in stop_times:
-            del stop_times[vehicle_id]
+        # 주차 구역에 처음 들어온 시간이 있고, 5초 이상 경과한 경우
+        if time.time() - stop_times[arg_vehicle_id] >= 5:
+            car_numbers[arg_vehicle_id]["status"] = "parking"
+            car_numbers[arg_vehicle_id]["parking_time"] = stop_times[arg_vehicle_id]
+            parking_space[car_numbers[arg_vehicle_id]["parking"]]["status"] = "empty"   # 데이터의 무결성을 위해 우선 비움
+            car_numbers[arg_vehicle_id]["parking"] = arg_space
+            car_numbers[arg_vehicle_id]["route"] = []   # 주차 시 경로 초기화
+            parking_space[arg_space]["status"] = "occupied"
+
+# 사전에 주차 되어 있던 차량에 번호 부여
+def isFirst_func(arg_vehicles):
+    """사전에 주차 되어 있던 차량에 번호 부여"""
+    print("isFirst", arg_vehicles)
+    print("isFirst", set_car_numbers)
+    global isFirst
+    for key, value in set_car_numbers.items():
+        for car_id, car_value in arg_vehicles.items():
+            # 오차 범위 +- 30 이내 이면 같은 차량으로 판단
+            if value[0] - 20 <= car_value["position"][0] <= value[0] + 20 and \
+                    value[1] - 20 <= car_value["position"][1] <= value[1] + 20:
+                car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": []}
+                print("isFirst", car_numbers)
+                break
+
+    isFirst = False
+
+# 차량이 이동 중인 경우
+def vehicle_moving(arg_vehicle_id):
+    del stop_times[arg_vehicle_id]
 
 # 경로 내의 구역의 혼잡도를 감소시키는 함수
 def decrease_congestion(arg_route):
@@ -159,18 +207,19 @@ def get_walking_space_for_parking_space(arg_parking_space):
             return key
 
 # 차량의 위치를 확인하는 함수
-def check_position(vehicle, arg_parking_positions, arg_walking_positions):
+def check_position(vehicle_id, vehicle_value, arg_parking_positions, arg_walking_positions):
     """차량의 위치를 확인하는 함수"""
+    print("vhhicle", vehicle_id, vehicle_value)
     for key, value in parking_space.items():
-        if value["position"][0][0] <= vehicle["position"][0] <= value["position"][1][0]\
-        and value["position"][0][1] <= vehicle["position"][1] <= value["position"][1][1]:
-            arg_parking_positions[key] = vehicle["id"]
+        if value["position"][0][0] <= vehicle_value["position"][0] <= value["position"][1][0]\
+        and value["position"][0][1] <= vehicle_value["position"][1] <= value["position"][1][1]:
+            arg_parking_positions[key] = vehicle_id
             return
 
     for key, value in walking_space.items():
-        if value["position"][0][0] <= vehicle["position"][0] <= value["position"][1][0]\
-        and value["position"][0][1] <= vehicle["position"][1] <= value["position"][1][1]:
-            arg_walking_positions[key] = vehicle["id"]
+        if value["position"][0][0] <= vehicle_value["position"][0] <= value["position"][1][0]\
+        and value["position"][0][1] <= vehicle_value["position"][1] <= value["position"][1][1]:
+            arg_walking_positions[key] = vehicle_id
             return
 
 # 주차 공간을 설정하는 함수
@@ -269,6 +318,8 @@ parking_space = {
     19: {"name": "D6", "status": "empty", "car_number": None, "position": ((200, 200), (250, 225))},
     20: {"name": "D7", "status": "empty", "car_number": None, "position": ((200, 225), (250, 250))},
     21: {"name": "D8", "status": "empty", "car_number": None, "position": ((200, 250), (250, 275))},
+    # 테스트 값
+    22: {"name": "TEST", "status": "empty", "car_number": None, "position": ((850, 300), (900, 350))},
 }
 
 # 이동 구역의 좌표값
@@ -288,6 +339,8 @@ walking_space = {
     13: {"name": "Path_13", "position": ((100, 250), (150, 300)), "parking_space": ()},
     14: {"name": "Path_14", "position": ((150, 250), (200, 300)), "parking_space": (21, )},
     15: {"name": "Exit", "position": ((0, 250), (50, 300)), "parking_space": (-1, )},   # 출구
+    # 테스트 값
+    16: {"name": "TEST", "position": ((800, 300), (850, 350)), "parking_space": (22, )},
 }
 
 # 그래프
@@ -345,6 +398,11 @@ stop_times = {}
 # 입구의 좌표
 entry_x = (0, 100)
 entry_y = (0, 100)
+
+# 이미 주차되어 있던 차량
+set_car_numbers = {}
+
+isFirst = True
 
 if __name__ == "__main__":
 
