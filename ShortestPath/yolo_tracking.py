@@ -6,7 +6,9 @@ import numpy as np
 from ultralytics import YOLO
 
 def main(yolo_data_queue, event):
-    yolo_data_queue.put({"vehicles": {1: {"position": (879, 316), "speed": 20, "direction": "north", "status": "moving"}}})
+    yolo_data_queue.put({
+        "vehicles": {1: {"position": (1261, 678), "speed": 20, "direction": "north", "status": "moving"},
+                     2: {"position": (1841, 212), "speed": 20, "direction": "north", "status": "moving"},}})
 
     event.wait()
 
@@ -34,10 +36,10 @@ def calculate_speed_and_direction(previous_position, current_position):
 # TODO 1: 차량을 추적하는 모델로 변경
 # TODO 2: 좌표 확인을 위해 __main__ 함수에 테스트 코드 작성
 
-def track_vehicles(yolo_data_queue, video_source=1,
+def track_vehicles(yolo_data_queue, video_source=0,
                    # model_path='/Users/kyumin/python-application/carDetection/YOLOv8_car_model/yolov8-car3/weights/best.pt',
                    model_path='yolov8s.pt',
-                   img_size=1000):
+                   img_size=1024):
     # YOLOv8 모델 로드
     model = YOLO(model_path)
 

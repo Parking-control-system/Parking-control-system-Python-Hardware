@@ -122,7 +122,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
         print(congestion)
 
         # 차량 데이터 전송
-        route_data_queue.put(car_numbers)
+        route_data_queue.put({"total_cars": number_of_parking_space, "cars": car_numbers})
 
         yolo_data_queue.task_done()  # 처리 완료 신호
 
@@ -172,7 +172,8 @@ def isFirst_func(arg_vehicles):
 
 # 차량이 이동 중인 경우
 def vehicle_moving(arg_vehicle_id):
-    del stop_times[arg_vehicle_id]
+    if arg_vehicle_id in stop_times:
+        del stop_times[arg_vehicle_id]
 
 # 경로 내의 구역의 혼잡도를 감소시키는 함수
 def decrease_congestion(arg_route):
@@ -319,7 +320,8 @@ parking_space = {
     20: {"name": "D7", "status": "empty", "car_number": None, "position": ((200, 225), (250, 250))},
     21: {"name": "D8", "status": "empty", "car_number": None, "position": ((200, 250), (250, 275))},
     # 테스트 값
-    22: {"name": "TEST", "status": "empty", "car_number": None, "position": ((850, 300), (900, 350))},
+    22: {"name": "TEST", "status": "empty", "car_number": None, "position": ((1200, 600), (1300, 700))},
+    23: {"name": "TEST", "status": "empty", "car_number": None, "position": ((1800, 200), (1900, 300))},
 }
 
 # 이동 구역의 좌표값
@@ -341,6 +343,7 @@ walking_space = {
     15: {"name": "Exit", "position": ((0, 250), (50, 300)), "parking_space": (-1, )},   # 출구
     # 테스트 값
     16: {"name": "TEST", "position": ((800, 300), (850, 350)), "parking_space": (22, )},
+    17: {"name": "TEST", "position": ((850, 300), (900, 350)), "parking_space": (23, )},
 }
 
 # 그래프
@@ -403,6 +406,8 @@ entry_y = (0, 100)
 set_car_numbers = {}
 
 isFirst = True
+
+number_of_parking_space = len(parking_space)
 
 if __name__ == "__main__":
 

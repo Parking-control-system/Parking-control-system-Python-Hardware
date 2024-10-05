@@ -4,7 +4,10 @@ import queue
 import yolo_tracking as yolo
 import test_file.yolo_tracking_mock as yolo_mock
 import shortest_route as sr
+import send_to_server as server
 import uart
+
+URI = "ws://127.0.0.1:5002"
 
 # 프로그램 종료 플래그
 stop_event = threading.Event()
@@ -26,7 +29,7 @@ thread1 = threading.Thread(target=yolo.main, kwargs={"yolo_data_queue": yolo_dat
 # thread1 = threading.Thread(target=yolo_mock.track_vehicles, kwargs={"yolo_data_queue": yolo_data_queue})
 thread2 = threading.Thread(target=sr.main, kwargs={"yolo_data_queue": yolo_data_queue, "car_number_data_queue": car_number_data_queue, "route_data_queue": route_data_queue, "event": init_event})
 thread3 = threading.Thread(target=uart.get_car_number, kwargs={"car_number_data_queue": car_number_data_queue})
-thread4 = threading.Thread(target=send_path_to_server_and_arduino)
+thread4 = threading.Thread(target=server.send_to_server, kwargs={"uri": URI, "route_data_queue": route_data_queue})
 
 # 쓰레드 시작
 thread1.start()
