@@ -15,27 +15,17 @@ def handle_connect():
     print('Client connected')
     emit('message', {'data': 'Connected to server!'})
 
-# 클라이언트에서 보내는 'signal' 이벤트 처리
-@socketio.on('signal')
-def handle_signal(data):
-    print('Received signal:', data)
+# 클라이언트에서 보내는 기본 메세지 처리
+@socketio.on('message')
+def handle_message(data):
+    print('Received message:', data)
     # 받은 데이터를 처리하거나, 필요에 따라 클라이언트에게 다시 전송할 수 있습니다.
-    emit('response', {'data': 'Signal received'}, broadcast=True)
+    emit('response', {'data': data}, broadcast=True)   # broadcast=True로 설정하면 연결된 모든 클라이언트에게 전송
 
 # 클라이언트가 연결 해제되었을 때 처리하는 이벤트
 @socketio.on('disconnect')
 def handle_disconnect():
     print('Client disconnected')
-
-# @app.route("/stream")
-# def stream():
-#     def event_stream():
-#         while True:
-#             # 클라이언트에게 데이터를 전송합니다.
-#             time.sleep(1)
-#             yield 'data: {}\n\n'.format('Hello, world!')
-#
-#     return Response(stream_with_context(event_stream()), content_type='text/event-stream')
 
 if __name__ == '__main__':
     # Flask-SocketIO는 일반 Flask와 다르게 socketio.run()을 사용해 서버를 실행합니다.
