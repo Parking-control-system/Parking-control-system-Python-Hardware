@@ -12,6 +12,9 @@ space_type = ""  # parking_space 또는 walking_space 중 하나를 선택
 parking_space = {}
 walking_space = {}
 
+# 이동 구역의 인접한 주차 구역 리스트
+walking_space_near_parking = [[], [0, ], [1, 2, 3], [4, 5, 14], [6, 7], [8, 9, 15, 16], [], [], [17, 18], [10, 11], [12, 13, 19, 20], [], [], [21], [-1]]
+
 # 주차 구역의 이름 리스트 (A1, A2, ..., D8)
 parking_zone_names = [
     "A1", "A2", "A3", "A4", "A5", "A6", "B1", "B2", "B3", "B4",
@@ -106,7 +109,7 @@ while True:
                 walking_space[zone_index] = {
                     "name": zone_names[zone_index],
                     "position": [list(point) for point in current_polygon],
-                    "parking_space": []  # 초기 parking_space 값은 빈 리스트
+                    "parking_space": walking_space_near_parking[zone_index]
                 }
 
             # 다음 구역으로 이동
