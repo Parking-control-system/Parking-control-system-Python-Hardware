@@ -1,11 +1,11 @@
 import serial
 import time
-import queue;
+import queue
 
-def get_car_number(car_number_data_queue):
+def get_car_number(car_number_data_queue, serial_port):
     """라즈베리 파이로부터 UART 통신을 이용하여 차량 번호를 수신하는 함수"""
     # 라즈베리 파이와 UART 통신 설정
-    ser = serial.Serial('/dev/ttys035', 9600, timeout=1)
+    ser = serial.Serial(serial_port, 9600, timeout=1)
 
     while True:
     
@@ -21,5 +21,9 @@ def get_car_number(car_number_data_queue):
         time.sleep(1)
 
 if __name__ == "__main__":
-    car_number_data_queue = queue.Queue()
-    get_car_number(car_number_data_queue)
+    ser = serial.Serial('/dev/ttys044', 9600, timeout=1)
+
+    while True:
+        data = ser.readline().decode().strip()
+
+        print(data)
