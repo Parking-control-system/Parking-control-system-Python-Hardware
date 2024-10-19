@@ -2,12 +2,26 @@ import threading
 import time
 import queue
 import yolo_tracking as yolo
-import test_file.yolo_tracking_mock as yolo_mock
+import yolo_tracking_deep_sort as yolo_deep_sort
 import shortest_route as sr
 import send_to_server as server
 import uart
 
+# 서버 주소 및 포트
 URI = "ws://127.0.0.1:5002"
+# 주차 구역 좌표 파일 경로
+PARKING_SPACE_PATH = "/Users/kyumin/Parking-control-system-Python-Hardware/ShortestPath/position_file/parking_space.json"
+# 이동 구역 좌표 파일 경로
+WALKING_SPACE_PATH = "/Users/kyumin/Parking-control-system-Python-Hardware/ShortestPath/position_file/walking_space.json"
+# YOLO 모델 경로
+MODEL_PATH = "/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v1/weights/best.pt"
+# 비디오 소스
+VIDEO_SOURCE = 0
+# 수신 시리얼 포트
+SERIAL_PORT = "/dev/ttys027"
+# 송신 시리얼 포트
+SERIAL_PORT2 = "/dev/ttys028"
+# SERIAL_PORT3 = "/dev/ttyACM2"
 
 # 프로그램 종료 플래그
 stop_event = threading.Event()
@@ -18,18 +32,11 @@ yolo_data_queue = queue.Queue()
 car_number_data_queue = queue.Queue()
 route_data_queue = queue.Queue()
 
-# 4. 경로를 서버와 Arduino로 전송 (무한 반복)
-def send_path_to_server_and_arduino():
-    while not stop_event.is_set():
-        # print("경로를 서버와 Arduino로 전송 중...")
-        time.sleep(5)
-
 # 쓰레드 생성
-thread1 = threading.Thread(target=yolo.main, kwargs={"yolo_data_queue": yolo_data_queue, "event": init_event})
-# thread1 = threading.Thread(target=yolo_mock.track_vehicles, kwargs={"yolo_data_queue": yolo_data_queue})
-thread2 = threading.Thread(target=sr.main, kwargs={"yolo_data_queue": yolo_data_queue, "car_number_data_queue": car_number_data_queue, "route_data_queue": route_data_queue, "event": init_event})
-thread3 = threading.Thread(target=uart.get_car_number, kwargs={"car_number_data_queue": car_number_data_queue})
-thread4 = threading.Thread(target=server.send_to_server, kwargs={"uri": URI, "route_data_queue": route_data_queue})
+thread1 = threading.Thread(target=yolo_deep_sort.main, kwargs={"yolo_data_queue": yolo_data_queue, "event": init_event, "model_path": MODEL_PATH, "video_source": VIDEO_SOURCE})
+thread2 = threading.Thread(target=sr.main, kwargs={"yolo_data_queue": yolo_data_queue, "car_number_data_queue": car_number_data_queue, "route_data_queue": route_data_queue, "event": init_event, "parking_space_path": PARKING_SPACE_PATH, "walking_space_path": WALKING_SPACE_PATH})
+thread3 = threading.Thread(target=uart.get_car_number, kwargs={"car_number_data_queue": car_number_data_queue, "serial_port": SERIAL_PORT})
+thread4 = threading.Thread(target=server.send_to_server, kwargs={"uri": URI, "route_data_queue": route_data_queue, "parking_space_path": PARKING_SPACE_PATH, "walking_space_path": WALKING_SPACE_PATH, "serial_port": SERIAL_PORT2})
 
 # 쓰레드 시작
 thread1.start()

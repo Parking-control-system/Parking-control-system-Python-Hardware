@@ -1,10 +1,10 @@
 import socketio
 import time
 import queue
+import json
+import serial
 
-from shortest_route import walking_space, parking_space
-
-# Standard Python
+# 소켓 지정
 sio = socketio.Client(reconnection=True, reconnection_attempts=5, reconnection_delay=2)
 
 @sio.event
@@ -15,11 +15,17 @@ def connect():
 def disconnect():
     print("Disconnected from server")
 
-def send_to_server(uri, route_data_queue):
+def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path, serial_port):
+    # 서버 연결
     sio.connect(uri)
-    # test
-    moving_x = 0
-    moving_y = 0
+    # 시리얼 통신 설정
+    ser = serial.Serial(serial_port, 9600, timeout=1)
+
+    # walking_space의 키를 숫자형으로 변환
+    with open(walking_space_path,
+              "r") as f:
+        walking_space = json.load(f)
+        walking_space = {int(key): value for key, value in walking_space.items()}  # 문자열 키를 숫자로 변환
 
     while True:
         try:
@@ -28,65 +34,34 @@ def send_to_server(uri, route_data_queue):
             # Sending path: {'cars': {1: {'car_number': '1234', 'status': 'parking', 'parking': 22, 'route': [], 'parking_time': 1728125835.2989068},
             #                                   2: {'car_number': '5678', 'status': 'parking', 'parking': 23, 'route': [], 'parking_time': 1728125835.298909}}}
 
+            print(f"send_to_server 에서 받은 데이터 : {data}")
             cars = data["cars"]
 
-            parking_data = parking_space.copy()
+            parking_data = data["parking"]
 
             print("parkingData = ", parking_data)
 
-            moving_data = {
-                0: {"position": (0 + moving_x, 0 + moving_y), "entry_time": 0},
-                1: {"position": (100 - moving_x, 200 - moving_y), "entry_time": 0},
-            }
-
-            moving_x += 2
-            moving_y += 1
-
-            if moving_x > 100:
-                moving_x = 0
-                moving_y = 0
-
             send_data = {"time": time.time()}
 
-            for id, value in data["moving"]:
-                moving_data[value]["position"] = cars[value]["position"]
-                moving_data[value]["entry_time"] = cars[value]["entry_time"]
-                moving_data[value]["car_number"] = cars[value]["car_number"]
+            moving_data = {}
 
-            send_data["moving"] = moving_data
-
+            # TODO 차량의 위치 데이터를 비율 계산하여서 전송
             for id, value in data["cars"].items():
                 if value["status"] == "entry":
-                    parking_data[value["parking"]]["status"] = "target"
-                    parking_data[value["parking"]]["car_number"] = value["car_number"]
                     parking_data[value["parking"]]["entry_time"] = value["entry_time"]
-
-            for id, value in data["parking"]:
-                parking_data[id]["status"] = "parking"
-                parking_data[id]["car_number"] = cars[value]["car_number"]
-                parking_data[id["parking_time"]] = cars[value]["parking_time"]
+                    moving_data[id] = {"position": value["position"], "entry_time": value["entry_time"]}
+                elif value["status"] == "exit":
+                    moving_data[id] = {"position": value["position"], "exit_time": value["exit_time"]}
 
             send_data["parking"] = parking_data
-
-            timed = 1728718966.121786
-
-            # 웹 테스트 데이터
-            for i in (0, 1, 2, 3, 13, 14, 17, 21):
-                parking_data[i]["status"] = "parking"
-                parking_data[i]["car_number"] = "123가5674"
-                parking_data[i]["entry_time"] = time.time()
-                parking_data[i]["parking_time"] = timed + i
-
-            for i in (3, 21):
-                send_data["parking"][i]["status"] = "target"
-                send_data["parking"][i]["car_number"] = "123가5674"
-                send_data["parking"][i]["entry_time"] = timed + i
 
             print(f"Sending path: {send_data}")
 
             # 서버로 데이터 전송
             sio.emit('message', send_data)
 
+
+            # Arduino로 전송할 데이터 생성
             arduino_data = []
 
             for car, value in data["cars"].items():
@@ -97,7 +72,7 @@ def send_to_server(uri, route_data_queue):
                     next_area = walking_space[route[2]]
                     display_area_id = route[1]
 
-                    # TODO 실환경에서 테스트 할 경우에는 좌표가 완전히 동일하지 않기 때문에 +- 얼마 정도로 조건을 수정해야 함
+                    # TODO 실환경에서 테스트 할 경우에는 좌표가 완전히 동일하지 않기 때문에 +- 얼마 정도로 적절히 조건을 수정
                     # x 좌표가 같은 경우
                     if display_area["position"][0][0] == next_area["position"][0][0]:
                         if display_area["position"][0][1] < next_area["position"][0][1]:
@@ -111,6 +86,12 @@ def send_to_server(uri, route_data_queue):
                             arduino_data.append((car, display_area_id, "right"))
                         elif display_area["position"][0][0] > next_area["position"][0][0]:
                             arduino_data.append((car, display_area_id, "left"))
+
+            print(f"Arduino data: {arduino_data}")
+
+            ser.write((str(arduino_data) + "\n").encode())
+
+            # ser.write(("Data sent!" + str(time.time()) + "\n").encode()) # TEST 테스트 데이터
 
         except queue.Empty:
             # Queue가 비었을 때는 잠시 대기

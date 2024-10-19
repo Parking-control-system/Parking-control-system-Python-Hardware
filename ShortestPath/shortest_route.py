@@ -1,10 +1,31 @@
 import heapq
 import time
+import json
+import numpy as np
+import cv2
 
-def main(yolo_data_queue, car_number_data_queue, route_data_queue, event):
+def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parking_space_path, walking_space_path):
 
+    yolo_data_queue.get()
+    yolo_data_queue.get()
     init(yolo_data_queue)
 
+    global parking_space
+    global walking_space
+
+    # parking_space의 키를 숫자형으로 변환
+    with open(parking_space_path,
+              "r") as f:
+        parking_space = json.load(f)
+        parking_space = {int(key): value for key, value in parking_space.items()}  # 문자열 키를 숫자로 변환
+
+    # walking_space의 키를 숫자형으로 변환
+    with open(walking_space_path,
+              "r") as f:
+        walking_space = json.load(f)
+        walking_space = {int(key): value for key, value in walking_space.items()}  # 문자열 키를 숫자로 변환
+
+    # tracking 쓰레드 루프 시작
     event.set()
 
     roop(yolo_data_queue, car_number_data_queue, route_data_queue)
@@ -13,8 +34,7 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue, event):
 def init(yolo_data_queue):
     tracking_data = yolo_data_queue.get()["vehicles"]
 
-    print(tracking_data)
-    print(tracking_data[1])
+    print("최초 실행 데이터", tracking_data)
 
     for key, value in tracking_data.items():
         print(key)
@@ -25,17 +45,18 @@ def init(yolo_data_queue):
 def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
     """차량 추적 데이터와 차량 번호 데이터를 받아오는 메인 함수"""
 
-    print(set_car_numbers)
+    print("최초 실행 시 설정된 차량 번호", set_car_numbers)
     while True:
         # 큐에서 데이터 가져오기
         tracking_data = yolo_data_queue.get()
+
         if tracking_data is None:  # 종료 신호 (None) 받으면 종료
             break
 
         # 데이터 처리
         vehicles = tracking_data["vehicles"]
 
-        print(vehicles)
+        print("최단 경로 수신 데이터", vehicles)
 
         # 최초 실행의 경우 주차된 차량 아이디 부여
         if isFirst:
@@ -48,6 +69,8 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
 
         for car_id, value in vehicles.items():
             check_position(car_id, value, parking_positions, walking_positions)
+            if car_id in car_numbers:
+                car_numbers[car_id]["position"] = value["position"]
 
         set_parking_space(parking_positions)
         set_walking_space(walking_positions)
@@ -60,16 +83,21 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
             print("입차 하는 차량이 있습니다.")
             if car_number_data_queue.qsize() > 0:
                 car_number = car_number_data_queue.get()
-                print(f"2번 쓰레드: 라즈베리 파이로부터 수신한 차량 번호: {car_number}")
-                car_numbers[walking_positions[1]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number), "route": []}
-                print(car_numbers)
+                print(f"2번 쓰레드: 입출차기에서 수신한 차량 번호: {car_number}")
+                car_numbers[walking_positions[1]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number), "route": [], "entry_time": time.time()}
+                print("car_numbers", car_numbers)
 
         vehicles_to_route = {}  # 경로를 계산할 차량
 
         # 이동 구역에 있는 차량이 경로가 없는 경우 또는 경로에서 벗어난 경우
         for key, value in walking_positions.items():
             vehicle_moving(key) # 주차 시간 삭제
-            temp_route = car_numbers[value]["route"]
+            if value in car_numbers:
+                temp_route = car_numbers[value]["route"]
+            else:
+                print("차량 정보가 없습니다.")
+                temp_route = []
+            # 경로가 없는 경우 또는 경로에서 벗어난 경우
             if value in car_numbers and car_numbers[value]["status"] == "entry" and (not temp_route or key not in temp_route):
                 decrease_congestion(temp_route)
                 car_numbers[value]["route"] = []
@@ -107,7 +135,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
                 route = route[:route.index(amend_goal) + 1]
                 parking_space[car_numbers[value]["parking"]]["status"] = "empty"    # 이전 주차 공간 비우기
                 # car_numbers[walking_positions[key]]["parking"] = amend_parking_space
-                car_numbers[value]["parking"] = amend_parking_space # 추자 공간 변경
+                car_numbers[value]["parking"] = amend_parking_space # 주차 공간 변경
 
             print(route)
             increase_congestion(route)
@@ -116,13 +144,13 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
 
         print("주차한 차량: ", parking_positions)
         print("이동 중인 차량: ", walking_positions)
-        print(car_numbers)
+        print("car_numbers", car_numbers)
 
-        print(parking_space)
+        print("parking_space", parking_space)
         print(congestion)
 
         # 차량 데이터 전송
-        route_data_queue.put({"total_cars": number_of_parking_space, "cars": car_numbers})
+        route_data_queue.put({"cars": car_numbers, "parking": parking_space})
 
         yolo_data_queue.task_done()  # 처리 완료 신호
 
@@ -147,11 +175,12 @@ def vehicle_parking_time(arg_space, arg_vehicle_id):
         # 주차 구역에 처음 들어온 시간이 있고, 5초 이상 경과한 경우
         if time.time() - stop_times[arg_vehicle_id] >= 5:
             car_numbers[arg_vehicle_id]["status"] = "parking"
-            car_numbers[arg_vehicle_id]["parking_time"] = stop_times[arg_vehicle_id]
             parking_space[car_numbers[arg_vehicle_id]["parking"]]["status"] = "empty"   # 데이터의 무결성을 위해 우선 비움
             car_numbers[arg_vehicle_id]["parking"] = arg_space
             car_numbers[arg_vehicle_id]["route"] = []   # 주차 시 경로 초기화
             parking_space[arg_space]["status"] = "occupied"
+            parking_space[arg_space]["car_number"] = car_numbers[arg_vehicle_id]["car_number"]
+            parking_space[arg_space]["parking_time"] = stop_times[arg_vehicle_id]
 
 # 사전에 주차 되어 있던 차량에 번호 부여
 def isFirst_func(arg_vehicles):
@@ -161,10 +190,10 @@ def isFirst_func(arg_vehicles):
     global isFirst
     for key, value in set_car_numbers.items():
         for car_id, car_value in arg_vehicles.items():
-            # 오차 범위 +- 30 이내 이면 같은 차량으로 판단
-            if value[0] - 20 <= car_value["position"][0] <= value[0] + 20 and \
-                    value[1] - 20 <= car_value["position"][1] <= value[1] + 20:
-                car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": []}
+            # 오차 범위 +- 10 이내 이면 같은 차량으로 판단
+            if value[0] - 10 <= car_value["position"][0] <= value[0] + 10 and \
+                    value[1] - 10 <= car_value["position"][1] <= value[1] + 10:
+                car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": [], "entry_time": time.time()}
                 print("isFirst", car_numbers)
                 break
 
@@ -207,34 +236,50 @@ def get_walking_space_for_parking_space(arg_parking_space):
         if arg_parking_space in tuple(value["parking_space"]):
             return key
 
+# 점이 다각형 내부에 있는지 확인하는 함수
+def is_point_in_polygon(px, py, polygon_points):
+    """주어진 점(px, py)이 다각형 polygon_points 내부에 있는지 확인"""
+    # 다각형 좌표를 numpy 배열로 변환
+    contour = np.array(polygon_points, dtype=np.int32)
+    # OpenCV의 pointPolygonTest 사용
+    result = cv2.pointPolygonTest(contour, (px, py), False)
+    # 결과가 양수이면 내부에 있음
+    return result >= 0
+
 # 차량의 위치를 확인하는 함수
 def check_position(vehicle_id, vehicle_value, arg_parking_positions, arg_walking_positions):
     """차량의 위치를 확인하는 함수"""
-    print("vhhicle", vehicle_id, vehicle_value)
+    # 차량 위치 확인
+    px, py = vehicle_value["position"]
+
+    # 주차 공간 체크
     for key, value in parking_space.items():
-        if value["position"][0][0] <= vehicle_value["position"][0] <= value["position"][1][0]\
-        and value["position"][0][1] <= vehicle_value["position"][1] <= value["position"][1][1]:
+        if is_point_in_polygon(px, py, value["position"]):
             arg_parking_positions[key] = vehicle_id
+            print(f"차량 {vehicle_id}은 주차 공간 {key}에 위치합니다.")
             return
 
+    # 이동 공간 체크
     for key, value in walking_space.items():
-        if value["position"][0][0] <= vehicle_value["position"][0] <= value["position"][1][0]\
-        and value["position"][0][1] <= vehicle_value["position"][1] <= value["position"][1][1]:
+        if is_point_in_polygon(px, py, value["position"]):
             arg_walking_positions[key] = vehicle_id
+            print(f"차량 {vehicle_id}은 이동 공간 {key}에 위치합니다.")
             return
+
+    print(f"차량 {vehicle_id}의 위치를 확인할 수 없습니다.")
 
 # 주차 공간을 설정하는 함수
 def set_parking_space(arg_parking_positions):
     """주차 공간을 설정하는 함수"""
     for key, value in parking_space.items():
         if value["name"] in arg_parking_positions:
-            parking_space[key]["status"] = "occupied"
-            parking_space[key]["car_number"] = arg_parking_positions[value["name"]]
+            pass
         elif value["status"] == "target":
             pass
-        # else:
-        #     parking_space[key]["status"] = "empty"
-        #     parking_space[key]["car_number"] = None
+        else:
+            parking_space[key]["status"] = "empty"
+            parking_space[key]["car_number"] = None
+            parking_space[key]["parking_time"] = None
 
 # 이동 공간을 설정하는 함수
 def set_walking_space(arg_walking_positions):
@@ -246,6 +291,11 @@ def set_walking_space(arg_walking_positions):
         else:
             walking_space[key]["status"] = "empty"
             walking_space[key]["car_number"] = None
+
+    # 이동 공간에 있는 차량 중 주차를 했던 차량은 상태를 exit로 변경
+    for key, value in arg_walking_positions.items():
+        if car_numbers[value]["status"] == "parking":
+            car_numbers[value]["status"] = "exit"
 
 # 주차할 공간을 지정하는 함수 (할당할 주차 공간의 순서 지정)
 def set_goal(arg_car_number):
@@ -294,57 +344,11 @@ def a_star(graph, congestion, start, goal):
     
     return path
 
-# 주차 구역의 좌표값
-parking_space = {
-    # status = empty, occupied, target
-    0: {"name": "A1", "status": "empty", "car_number": None, "position": ((75, 0), (100, 50))},
-    1: {"name": "A2", "status": "empty", "car_number": None, "position": ((100, 0), (117, 50))},
-    2: {"name": "A3", "status": "empty", "car_number": None, "position": ((117, 0), (134, 50))},
-    3: {"name": "A4", "status": "empty", "car_number": None, "position": ((134, 0), (150, 50))},
-    4: {"name": "A5", "status": "empty", "car_number": None, "position": ((150, 0), (175, 50))},
-    5: {"name": "A6", "status": "empty", "car_number": None, "position": ((175, 0), (200, 50))},
-    6: {"name": "B1", "status": "empty", "car_number": None, "position": ((100, 100), (125, 125))},
-    7: {"name": "B2", "status": "empty", "car_number": None, "position": ((100, 125), (125, 150))},
-    8: {"name": "B3", "status": "empty", "car_number": None, "position": ((125, 100), (150, 125))},
-    9: {"name": "B4", "status": "empty", "car_number": None, "position": ((125, 125), (150, 150))},
-    10: {"name": "C1", "status": "empty", "car_number": None, "position": ((100, 200), (125, 225))},
-    11: {"name": "C2", "status": "empty", "car_number": None, "position": ((100, 225), (125, 250))},
-    12: {"name": "C3", "status": "empty", "car_number": None, "position": ((125, 200), (150, 225))},
-    13: {"name": "C4", "status": "empty", "car_number": None, "position": ((125, 225), (150, 250))},
-    14: {"name": "D1", "status": "empty", "car_number": None, "position": ((200, 75), (250, 100))},
-    15: {"name": "D2", "status": "empty", "car_number": None, "position": ((200, 100), (250, 125))},
-    16: {"name": "D3", "status": "empty", "car_number": None, "position": ((200, 125), (250, 150))},
-    17: {"name": "D4", "status": "empty", "car_number": None, "position": ((200, 150), (250, 175))},
-    18: {"name": "D5", "status": "empty", "car_number": None, "position": ((200, 175), (250, 200))},
-    19: {"name": "D6", "status": "empty", "car_number": None, "position": ((200, 200), (250, 225))},
-    20: {"name": "D7", "status": "empty", "car_number": None, "position": ((200, 225), (250, 250))},
-    21: {"name": "D8", "status": "empty", "car_number": None, "position": ((200, 250), (250, 275))},
-    # 테스트 값
-    22: {"name": "TEST", "status": "empty", "car_number": None, "position": ((1200, 600), (1300, 700))},
-    23: {"name": "TEST", "status": "empty", "car_number": None, "position": ((1800, 200), (1900, 300))},
-}
+# # 주차 구역의 좌표값
+parking_space = {}
 
-# 이동 구역의 좌표값
-walking_space = {
-    1: {"name": "Entry", "position": ((0, 50), (50, 100)), "parking_space": ()},
-    2: {"name": "Path_2", "position": ((50, 50), (100, 100)), "parking_space": (0, )},
-    3: {"name": "Path_3", "position": ((100, 50), (150, 100)), "parking_space": (1, 2, 3)},
-    4: {"name": "Path_4", "position": ((150, 50), (200, 100)), "parking_space": (4, 5, 14)},
-    5: {"name": "Path_5", "position": ((50, 100), (100, 150)), "parking_space": (6, 7)},
-    6: {"name": "Path_6", "position": ((150, 100), (200, 150)), "parking_space": (8, 9, 15, 16)},
-    7: {"name": "Path_7", "position": ((50, 150), (100, 200)), "parking_space": ()},
-    8: {"name": "Path_8", "position": ((100, 150), (150, 200)), "parking_space": ()},
-    9: {"name": "Path_9", "position": ((150, 150), (200, 200)), "parking_space": (17, 18)},
-    10: {"name": "Path_10", "position": ((50, 200), (100, 250)), "parking_space": (10, 11)},
-    11: {"name": "Path_11", "position": ((150, 200), (200, 250)), "parking_space": (12, 13, 19, 20)},
-    12: {"name": "Path_12", "position": ((50, 250), (100, 300)), "parking_space": ()},
-    13: {"name": "Path_13", "position": ((100, 250), (150, 300)), "parking_space": ()},
-    14: {"name": "Path_14", "position": ((150, 250), (200, 300)), "parking_space": (21, )},
-    15: {"name": "Exit", "position": ((0, 250), (50, 300)), "parking_space": (-1, )},   # 출구
-    # 테스트 값
-    16: {"name": "TEST", "position": ((800, 300), (850, 350)), "parking_space": (22, )},
-    17: {"name": "TEST", "position": ((850, 300), (900, 350)), "parking_space": (23, )},
-}
+# # 이동 구역의 좌표값
+walking_space = {}
 
 # 그래프
 graph = {
@@ -389,7 +393,7 @@ car_numbers = {
     # status = entry, parking, exit
     # parking = 상태가 entry일 경우에는 주차할 구역, parking일 경우에는 주차한 구역
     # id: {"car_number": "1234", "status": "entry", "parking": 0}
-    # 0: {"car_number": "12가1234", "status": "entry", "parking": 21, "route": [], "parking_time": None},
+    # 0: {"car_number": "12가1234", "status": "entry", "parking": 21, "route": [], "parking_time": None, "entry_time": None},
 }
 
 # 경로
