@@ -45,15 +45,20 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
 
             moving_data = {}
 
+            print("cars (send to server) = ", cars)
+
             # TODO 차량의 위치 데이터를 비율 계산하여서 전송
-            for id, value in data["cars"].items():
+            for id, value in cars.items():
+                print("id = ", id)
+                print("value = ", value)
                 if value["status"] == "entry":
                     parking_data[value["parking"]]["entry_time"] = value["entry_time"]
-                    moving_data[id] = {"position": value["position"], "entry_time": value["entry_time"]}
+                    moving_data[id] = {"position": value["position"], "entry_time": value["entry_time"], "car_number": value["car_number"], "status": "entry"}
                 elif value["status"] == "exit":
-                    moving_data[id] = {"position": value["position"], "exit_time": value["exit_time"]}
+                    moving_data[id] = {"position": value["position"], "entry_time": value["entry_time"], "car_number": value["car_number"], "status": "exit"}
 
             send_data["parking"] = parking_data
+            send_data["moving"] = moving_data
 
             print(f"Sending path: {send_data}")
 
@@ -67,7 +72,7 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             for car, value in data["cars"].items():
                 # 3개 이상의 경로가 있고 경로의 두 번째 값이 2, 4, 7, 9, 12, 14인 경우
                 route = value["route"]
-                if route and route[1] in (2, 4, 7, 9, 12, 14) and len(route) > 2:
+                if route and len(route) > 2 and route[1] in (2, 4, 7, 9, 12, 14):
                     display_area = walking_space[route[1]]
                     next_area = walking_space[route[2]]
                     display_area_id = route[1]

@@ -7,16 +7,15 @@ WHITE = (255, 255, 255)
 
 # model_path: YOLO 모델 경로 수정 필요
 def detect_objects(video_source=0,
-                   model_path='/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v1/weights/best.pt',
-                   img_size=960):
+                   model_path='/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt'):
 
     model = YOLO(model_path)
     cap = cv2.VideoCapture(video_source)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 544)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
     # DeepSORT 초기화
-    tracker = DeepSort(max_age=30)
+    tracker = DeepSort(max_age=100, n_init=1, max_iou_distance=1)
 
     while True:
         ret, frame = cap.read()

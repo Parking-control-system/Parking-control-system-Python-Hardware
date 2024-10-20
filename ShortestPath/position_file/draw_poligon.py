@@ -106,11 +106,14 @@ while True:
                     "position": [list(point) for point in current_polygon]
                 }
             elif space_type == "walking_space":
-                walking_space[zone_index] = {
+                walking_space[zone_index + 1] = {
                     "name": zone_names[zone_index],
                     "position": [list(point) for point in current_polygon],
                     "parking_space": walking_space_near_parking[zone_index]
                 }
+
+                if zone_index == 14:
+                    break
 
             # 다음 구역으로 이동
             zone_index += 1
