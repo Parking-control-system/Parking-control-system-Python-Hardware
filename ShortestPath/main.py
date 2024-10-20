@@ -1,7 +1,6 @@
 import threading
 import time
 import queue
-import yolo_tracking as yolo
 import yolo_tracking_deep_sort as yolo_deep_sort
 import shortest_route as sr
 import send_to_server as server
@@ -14,7 +13,7 @@ PARKING_SPACE_PATH = "/Users/kyumin/Parking-control-system-Python-Hardware/Short
 # 이동 구역 좌표 파일 경로
 WALKING_SPACE_PATH = "/Users/kyumin/Parking-control-system-Python-Hardware/ShortestPath/position_file/walking_space.json"
 # YOLO 모델 경로
-MODEL_PATH = "/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v1/weights/best.pt"
+MODEL_PATH = "/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt"
 # 비디오 소스
 VIDEO_SOURCE = 0
 # 수신 시리얼 포트

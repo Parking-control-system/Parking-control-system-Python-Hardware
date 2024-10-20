@@ -7,8 +7,9 @@ from ultralytics import YOLO
 
 def main(yolo_data_queue, event):
     yolo_data_queue.put({
-        "vehicles": {1: {"position": (1261, 678), "speed": 20, "direction": "north", "status": "moving"},
-                     2: {"position": (1841, 212), "speed": 20, "direction": "north", "status": "moving"},}})
+        "vehicles": {# 1: {"position": (1430, 771), "speed": 20, "direction": "north", "status": "moving"},
+                     #2: {"position": (1173, 769), "speed": 20, "direction": "north", "status": "moving"},
+            }})
 
     event.wait()
 
@@ -39,7 +40,7 @@ def calculate_speed_and_direction(previous_position, current_position):
 def track_vehicles(yolo_data_queue, video_source=0,
                    # model_path='/Users/kyumin/python-application/carDetection/YOLOv8_car_model/yolov8-car3/weights/best.pt',
                    model_path='yolov8s.pt',
-                   img_size=1024):
+                   img_size=680):
     # YOLOv8 모델 로드
     model = YOLO(model_path)
 
@@ -103,12 +104,10 @@ def track_vehicles(yolo_data_queue, video_source=0,
                     color = (255, 0, 0) if cls == 1 else (0, 0, 255) if cls == 0 else (0, 255, 0)
                     plot_one_box([x1, y1, x2, y2], frame, label=label, color=color, line_thickness=2)
 
-        # cv2.imshow('YOLOv8 Detection', frame)
-
         # 객체 정보 출력 (콘솔)
         # if tracked_objects:
         #     print(tracked_objects)
-
+        print("yolo_tracking: ", tracked_objects)
         yolo_data_queue.put({"vehicles": tracked_objects})
 
         if cv2.waitKey(1) & 0xFF == ord('q'):

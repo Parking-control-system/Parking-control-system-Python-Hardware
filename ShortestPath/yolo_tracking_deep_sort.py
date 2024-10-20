@@ -11,7 +11,7 @@ def main(yolo_data_queue, event, model_path, video_source=0):
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
     # DeepSORT 초기화
-    tracker = DeepSort(max_age=30)
+    tracker = DeepSort(max_age=100, n_init=1, max_iou_distance=1)
 
     for _ in range(3):
         one_frame(cap, model, tracker, yolo_data_queue)
@@ -42,7 +42,7 @@ def one_frame(cap, model, tracker, yolo_data_queue):
             # 바운딩 박스 좌표 및 신뢰도 추출
             print(data)
             conf = float(data[4])  # 신뢰도 추출
-            if conf < 0.7:
+            if conf < 0.8:
                 continue
 
             xmin, ymin, xmax, ymax = int(data[0]), int(data[1]), int(data[2]), int(data[3])
