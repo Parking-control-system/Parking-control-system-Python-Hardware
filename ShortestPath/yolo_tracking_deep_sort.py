@@ -2,11 +2,15 @@ import queue
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
 from ultralytics import YOLO
+import platform
 
 def main(yolo_data_queue, event, model_path, video_source=0):
 
     model = YOLO(model_path)
-    cap = cv2.VideoCapture(video_source)
+    if platform.system() == "Darwin":
+        cap = cv2.VideoCapture(video_source)
+    elif platform.system() == "Linux":
+        cap = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
