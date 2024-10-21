@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import json
+import platform
 
 # 전역 변수 초기화
 zones = []
@@ -49,7 +50,11 @@ def draw_polygon(event, x, y, flags, param):
         cv2.polylines(image_copy, [pts], isClosed=False, color=(255, 0, 0), thickness=2)
 
 # 웹캠에서 한 프레임 캡처하기
-cap = cv2.VideoCapture(0)
+if platform.system() == 'Darwin':
+    cap = cv2.VideoCapture(0)
+elif platform.system() == 'Linux':
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 if not cap.isOpened():
