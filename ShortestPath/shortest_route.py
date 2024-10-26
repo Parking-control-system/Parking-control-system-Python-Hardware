@@ -79,7 +79,8 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
         for key, value in parking_positions.items():
             vehicle_parking_time(key, value)
 
-        if 1 in walking_positions:
+        # 차량 입차 확인
+        if 15 in walking_positions:
             print("입차 하는 차량이 있습니다.")
             if car_number_data_queue.qsize() > 0:
                 car_number = car_number_data_queue.get()
@@ -88,6 +89,10 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
                     continue
                 car_numbers[walking_positions[1]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number), "route": [], "entry_time": time.time(), "position": vehicles[walking_positions[1]]["position"]}
                 print("car_numbers", car_numbers)
+
+        if 1 in walking_positions:
+            print("출차 하는 차량이 있습니다.")
+            # TODO 출차 처리
 
         vehicles_to_route = {}  # 경로를 계산할 차량
 
@@ -321,7 +326,7 @@ def set_walking_space(arg_walking_positions):
 def set_goal(arg_car_number):
     """주차할 공간을 지정하는 함수"""
     print("set_goal")
-    for i in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21):    # 할당할 주차 구역 순서
+    for i in (11, 10, 21, 13, 20, 12, 19, 18, 17, 7, 6, 9, 8, 16, 15, 0, 14, 1, 2, 3, 4, 5):    # 할당할 주차 구역 순서
         if parking_space[i]["status"] == "empty":
             parking_space[i]["status"] = "target"
             parking_space[i]["car_number"] = arg_car_number
@@ -422,10 +427,6 @@ routes = {}
 
 # 각 차량의 정지 시간을 기록
 stop_times = {}
-
-# 입구의 좌표
-entry_x = (0, 100)
-entry_y = (0, 100)
 
 # 이미 주차되어 있던 차량
 set_car_numbers = {}
