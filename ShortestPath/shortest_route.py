@@ -225,7 +225,8 @@ def vehicle_moving(arg_vehicle_id, arg_vehicles):
     print(arg_vehicles)
 
     # 차량의 위치 정보 업데이트
-    car_numbers[str(arg_vehicle_id)]["position"] = arg_vehicles[str(arg_vehicle_id)]["position"]
+    if str(arg_vehicle_id) in car_numbers:
+        car_numbers[str(arg_vehicle_id)]["position"] = arg_vehicles[str(arg_vehicle_id)]["position"]
 
 # 경로 내의 구역의 혼잡도를 감소시키는 함수
 def decrease_congestion(arg_route):
@@ -291,6 +292,12 @@ def check_position(vehicle_id, vehicle_value, car_numbers, arg_parking_positions
             print(f"차량 {vehicle_id}은 이동 공간 {key}에 위치합니다.")
             return
 
+    # 입차 체크
+    if is_point_in_polygon(px, py, walking_space[15]["position"]):
+        arg_walking_positions[15] = vehicle_id
+        print(f"차량 {vehicle_id}은 입차 중입니다.")
+        return
+
     print(f"차량 {vehicle_id}의 위치를 확인할 수 없습니다.")
 
 # 주차 공간을 설정하는 함수
@@ -319,7 +326,7 @@ def set_walking_space(arg_walking_positions):
 
     # 이동 공간에 있는 차량 중 주차를 했던 차량은 상태를 exit로 변경
     for key, value in arg_walking_positions.items():
-        if car_numbers[value]["status"] == "parking":
+        if str(value) in car_numbers and car_numbers[value]["status"] == "parking":
             car_numbers[value]["status"] = "exit"
 
 # 주차할 공간을 지정하는 함수 (할당할 주차 공간의 순서 지정)

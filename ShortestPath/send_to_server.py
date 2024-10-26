@@ -131,6 +131,9 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             print("walking_cars", walking_cars)
 
             for id, value in walking_cars.items():
+                # 입차 하는 차량은 제외
+                if id == 15:
+                    continue
                 transformed_x, transformed_y = transform_point_in_quadrilateral_to_rectangle(cars[value]["position"],
                                                                                              walking_space[id]["position"],
                                                                                              web_coordinates[id][1][0] - web_coordinates[id][0][0],
