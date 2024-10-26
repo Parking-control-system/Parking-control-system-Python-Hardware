@@ -15,11 +15,61 @@ def calculate_center(points):
     center_y = sum(y_coords) / len(points)
     return (center_x, center_y)
 
-def transform_to_web_coordinates(zone_id, x, y):
-    """주차장 좌표를 웹 좌표로 변환"""
-    point = np.array([[[x, y]]], dtype="float32")
-    transformed_point = cv2.perspectiveTransform(point, transform_matrices[zone_id])
-    return transformed_point[0][0]
+
+def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, rect_width, rect_height):
+    """
+    사각형 내부의 특정 점을 좌우상하 반전한 직사각형의 대응 위치로 비율을 유지해 변환
+
+    :param point: (px, py) 사각형 내부의 특정 점의 좌표
+    :param quadrilateral: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 네 꼭짓점 좌표 (좌상단, 우상단, 우하단, 좌하단 순서)
+    :param rect_width: 직사각형의 너비
+    :param rect_height: 직사각형의 높이
+    :return: 변환된 직사각형 내부의 점의 좌표 (x, y)
+    """
+
+    # 사각형의 네 꼭짓점 좌표 배열화
+    quad_pts = np.array(quadrilateral, dtype="float32")
+
+    # 직사각형의 네 꼭짓점 좌표 정의 (좌상단, 우상단, 우하단, 좌하단 순서)
+    rect_pts = np.array([
+        [0, 0],
+        [rect_width, 0],
+        [rect_width, rect_height],
+        [0, rect_height]
+    ], dtype="float32")
+
+    # 투시 변환 행렬 계산
+    transform_matrix = cv2.getPerspectiveTransform(quad_pts, rect_pts)
+
+    # 특정 점을 배열로 변환하여 투시 변환 적용
+    point_array = np.array([[point]], dtype="float32")  # (px, py)
+    transformed_point = cv2.perspectiveTransform(point_array, transform_matrix)
+
+    # 결과 좌표 반환
+    transformed_x, transformed_y = transformed_point[0][0]
+    return float(transformed_x), float(transformed_y)
+
+def reflect_point_in_rectangle(point, width, height):
+    """
+    직사각형 내부의 특정 점을 상하좌우 반전시킨 좌표로 변환합니다.
+
+    :param point: (px, py) 특정 점의 좌표
+    :param width: 직사각형의 너비
+    :param height: 직사각형의 높이
+    :return: 상하좌우 반전된 새로운 좌표 (x', y')
+    """
+    px, py = point
+
+    # 직사각형 중심 계산
+    center_x = width / 2
+    center_y = height / 2
+
+    # 상하좌우 반전
+    reflected_x = 2 * center_x - px
+    reflected_y = 2 * center_y - py
+
+    return reflected_x, reflected_y
+
 
 # 소켓 지정
 sio = socketio.Client(reconnection=True, reconnection_attempts=5, reconnection_delay=2)
@@ -44,41 +94,6 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
         walking_space = json.load(f)
         walking_space = {int(key): value for key, value in walking_space.items()}  # 문자열 키를 숫자로 변환
 
-    web_coordinates = {
-        1: [(10, 160), (10, 240)],
-        2: [(10, 160), (350, 240)],
-        3: [(350, 160), (710, 240)],
-        4: [(710, 160), (1200, 240)],
-        5: [(10, 240), (350, 495)],
-        6: [(710, 240), (1200, 495)],
-        7: [(10, 495), (350, 600)],
-        8: [(350, 495), (710, 600)],
-        9: [(710, 495), (1200, 600)],
-        10: [(10, 600), (350, 845)],
-        11: [(710, 600), (1200, 845)],
-        12: [(10, 845), (350, 920)],
-        13: [(350, 845), (710, 920)],
-        14: [(710, 845), (1200, 920)],
-        15: [(10, 845), (10, 920)]
-    }
-
-    for zone_id, parking_pts in walking_space.items():
-        # 주차장의 네 개 좌표를 numpy 배열로 변환
-        parking_pts_array = np.array(parking_pts["position"], dtype="float32")
-
-        # 웹 구역의 네 개 좌표 생성 (직사각형이므로 자동으로 구할 수 있음)
-        web_top_left, web_bottom_right = web_coordinates[zone_id]
-        web_pts_array = np.array([
-            [web_top_left[0], web_top_left[1]],
-            [web_bottom_right[0], web_top_left[1]],
-            [web_bottom_right[0], web_bottom_right[1]],
-            [web_top_left[0], web_bottom_right[1]]
-        ], dtype="float32")
-
-        # 투시 변환 행렬 계산 (주차장에서 웹으로 변환)
-        transform_matrix = cv2.getPerspectiveTransform(parking_pts_array, web_pts_array)
-        transform_matrices[zone_id] = transform_matrix
-
     while True:
         try:
             # Queue에서 데이터가 있을 때까지 대기
@@ -88,6 +103,8 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
 
             print(f"send_to_server 에서 받은 데이터 : {data}")
             cars = data["cars"]
+
+            print("Transform Matrices:", transform_matrices)
 
             parking_data = data["parking"]
 
@@ -102,12 +119,25 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             for id, value in cars.items():
                 print("id = ", id)
                 print("value = ", value)
-                transformed_x, transformed_y = transform_to_web_coordinates(id, value["position"][0], value["position"][1])
                 if value["status"] == "entry":
                     parking_data[value["parking"]]["entry_time"] = value["entry_time"]
-                    moving_data[id] = {"position": (transformed_x, transformed_y), "entry_time": value["entry_time"], "car_number": value["car_number"], "status": "entry"}
+                    moving_data[id] = {"entry_time": value["entry_time"], "car_number": value["car_number"], "status": "entry"}
                 elif value["status"] == "exit":
-                    moving_data[id] = {"position": (transformed_x, transformed_y), "entry_time": value["entry_time"], "car_number": value["car_number"], "status": "exit"}
+                    moving_data[id] = {"entry_time": value["entry_time"], "car_number": value["car_number"], "status": "exit"}
+                print("movingData = ", moving_data)
+
+            # 이동 중인 차량 좌표 계산
+            walking_cars = data["walking"]
+            print("walking_cars", walking_cars)
+
+            for id, value in walking_cars.items():
+                transformed_x, transformed_y = transform_point_in_quadrilateral_to_rectangle(cars[value]["position"],
+                                                                                             walking_space[id]["position"],
+                                                                                             web_coordinates[id][1][0] - web_coordinates[id][0][0],
+                                                                                             web_coordinates[id][1][1] - web_coordinates[id][0][1])
+
+                reflect_x, reflect_y = reflect_point_in_rectangle((transformed_x, transformed_y), web_coordinates[id][1][0] - web_coordinates[id][0][0], web_coordinates[id][1][1] - web_coordinates[id][0][1])
+                moving_data[value] = {"position": (reflect_x + web_coordinates[id][0][0], reflect_y + web_coordinates[id][0][1])}
 
             send_data["parking"] = parking_data
             send_data["moving"] = moving_data
@@ -151,7 +181,7 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
 
             print(f"Arduino data: {arduino_data}")
 
-            ser.write((str(arduino_data) + "\n").encode())
+            # ser.write((str(arduino_data) + "\n").encode())
 
             # ser.write(("Data sent!" + str(time.time()) + "\n").encode()) # TEST 테스트 데이터
 
@@ -161,6 +191,25 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             continue
 
 transform_matrices = {}
+
+web_coordinates = {
+        1: [(9, 160), (10, 240)],
+        2: [(10, 160), (350, 240)],
+        3: [(350, 160), (710, 240)],
+        4: [(710, 160), (1200, 240)],
+        5: [(10, 240), (350, 495)],
+        6: [(710, 240), (1200, 495)],
+        7: [(10, 495), (350, 600)],
+        8: [(350, 495), (710, 600)],
+        9: [(710, 495), (1200, 600)],
+        10: [(10, 600), (350, 845)],
+        11: [(710, 600), (1200, 845)],
+        12: [(10, 845), (350, 920)],
+        13: [(350, 845), (710, 920)],
+        14: [(710, 845), (1200, 920)],
+        15: [(9, 845), (10, 920)]
+    }
+
 
 if __name__ == "__main__":
 
