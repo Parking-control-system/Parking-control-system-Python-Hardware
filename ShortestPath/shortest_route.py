@@ -87,7 +87,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
                 print(f"2번 쓰레드: 입출차기에서 수신한 차량 번호: {car_number}")
                 if car_number == "[]":
                     continue
-                car_numbers[walking_positions[1]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number), "route": [], "entry_time": time.time(), "position": vehicles[walking_positions[1]]["position"]}
+                car_numbers[walking_positions[15]] = {"car_number": car_number, "status": "entry", "parking": set_goal(car_number), "route": [], "entry_time": time.time(), "position": vehicles[walking_positions[15]]["position"]}
                 print("car_numbers", car_numbers)
 
         if 1 in walking_positions:
@@ -165,7 +165,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
         print(congestion)
 
         # 차량 데이터 전송
-        route_data_queue.put({"cars": car_numbers, "parking": parking_space})
+        route_data_queue.put({"cars": car_numbers, "parking": parking_space, "walking": walking_positions})
 
         yolo_data_queue.task_done()  # 처리 완료 신호
 
@@ -201,8 +201,8 @@ def vehicle_parking_time(arg_space, arg_vehicle_id):
 # 사전에 주차 되어 있던 차량에 번호 부여
 def isFirst_func(arg_vehicles):
     """사전에 주차 되어 있던 차량에 번호 부여"""
-    print("isFirst", arg_vehicles)
-    print("isFirst", set_car_numbers)
+    print("isFirst arg_vehicles", arg_vehicles)
+    print("isFirst set_car_numbers", set_car_numbers)
     global isFirst
     for key, value in set_car_numbers.items():
         for car_id, car_value in arg_vehicles.items():
@@ -210,7 +210,7 @@ def isFirst_func(arg_vehicles):
             if value[0] - 10 <= car_value["position"][0] <= value[0] + 10 and \
                     value[1] - 10 <= car_value["position"][1] <= value[1] + 10:
                 car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": [], "entry_time": time.time()}
-                print("isFirst", car_numbers)
+                print("isFirst car_numbers", car_numbers)
                 break
 
     isFirst = False

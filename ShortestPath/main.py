@@ -18,10 +18,10 @@ if platform.system() == "Darwin":
     MODEL_PATH = "/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt"
     # 비디오 소스
     VIDEO_SOURCE = 0
-    # 수신 시리얼 포트
-    SERIAL_PORT = "/dev/ttys027"
-    # 송신 시리얼 포트
-    SERIAL_PORT2 = "/dev/ttys028"
+    # 젯슨나노 수신 시리얼 포트
+    SERIAL_PORT = "/dev/ttys035"
+    # 아두이노 송신 시리얼 포트
+    SERIAL_PORT2 = "/dev/ttys037"
     # SERIAL_PORT3 = "/dev/ttyACM1"
 elif platform.system() == "Linux":
     # 서버 주소 및 포트
@@ -34,9 +34,9 @@ elif platform.system() == "Linux":
     MODEL_PATH = "/workspace/Parking-control-system-Python-Hardware-main/best.pt"
     # 비디오 소스
     VIDEO_SOURCE = 0
-    # 수신 시리얼 포트
+    # 젯슨나노 수신 시리얼 포트
     SERIAL_PORT = "/dev/ttyTHS0"
-    # 송신 시리얼 포트
+    # 아두이노 송신 시리얼 포트
     SERIAL_PORT2 = "/dev/ttyACM0"
     # SERIAL_PORT3 = "/dev/ttyACM1"
 
