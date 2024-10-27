@@ -82,11 +82,13 @@ def connect():
 def disconnect():
     print("Disconnected from server")
 
-def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path, serial_port):
+def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path, serial_port, serial_port2):
     # 서버 연결
+    global previous_serial_data
     sio.connect(uri)
     # 시리얼 통신 설정
     ser = serial.Serial(serial_port, 9600, timeout=1)
+    ser2 = serial.Serial(serial_port2, 9600, timeout=1)
 
     # walking_space의 키를 숫자형으로 변환
     with open(walking_space_path,
@@ -104,17 +106,11 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             print(f"send_to_server 에서 받은 데이터 : {data}")
             cars = data["cars"]
 
-            print("Transform Matrices:", transform_matrices)
-
             parking_data = data["parking"]
-
-            print("parkingData = ", parking_data)
 
             send_data = {"time": time.time()}
 
             moving_data = {}
-
-            print("cars (send to server) = ", cars)
 
             for id, value in cars.items():
                 print("id = ", id)
@@ -183,17 +179,19 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                             arduino_data[display_area_id] = {"car_number": car, "direction": "up"}
 
             print(f"Arduino data: {arduino_data}")
+            print(f"Previous serial data: {previous_serial_data}")
 
-            # ser.write((str(arduino_data) + "\n").encode())
-
-            # ser.write(("Data sent!" + str(time.time()) + "\n").encode()) # TEST 테스트 데이터
+            if arduino_data != previous_serial_data:
+                previous_serial_data = arduino_data
+                ser.write((str(arduino_data) + "\n").encode())
+                ser2.write((str(arduino_data) + "\n").encode())
+                print("Data sent!")
 
         except queue.Empty:
             # Queue가 비었을 때는 잠시 대기
+            print("Queue is empty")
             time.sleep(1)
             continue
-
-transform_matrices = {}
 
 web_coordinates = {
         1: [(9, 160), (10, 240)],
@@ -212,6 +210,8 @@ web_coordinates = {
         14: [(710, 845), (1200, 920)],
         15: [(9, 845), (10, 920)]
     }
+
+previous_serial_data = None
 
 
 if __name__ == "__main__":

@@ -3,8 +3,10 @@ import time
 import json
 import numpy as np
 import cv2
+import serial
 
-def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parking_space_path, walking_space_path):
+
+def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parking_space_path, walking_space_path, serial_port):
 
     yolo_data_queue.get()
     yolo_data_queue.get()
@@ -28,7 +30,7 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parkin
     # tracking 쓰레드 루프 시작
     event.set()
 
-    roop(yolo_data_queue, car_number_data_queue, route_data_queue)
+    roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port)
 
 # 최초 주차된 차량 아이디 부여
 def init(yolo_data_queue):
@@ -42,8 +44,10 @@ def init(yolo_data_queue):
         car_number = input(f"id {key}번 차량 번호: ")
         set_car_numbers[car_number] = value["position"]
 
-def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
+def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
     """차량 추적 데이터와 차량 번호 데이터를 받아오는 메인 함수"""
+
+    ser = serial.Serial(serial_port, 9600, timeout=1)
 
     print("최초 실행 시 설정된 차량 번호", set_car_numbers)
     while True:
@@ -92,7 +96,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
 
         if 1 in walking_positions:
             print("출차 하는 차량이 있습니다.")
-            # TODO 출차 처리
+            exit(walking_positions[1], ser)
 
         vehicles_to_route = {}  # 경로를 계산할 차량
 
@@ -168,6 +172,15 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue):
         route_data_queue.put({"cars": car_numbers, "parking": parking_space, "walking": walking_positions})
 
         yolo_data_queue.task_done()  # 처리 완료 신호
+
+def exit(arg_walking_positions, arg_serial):
+    """차량이 출차하는 함수"""
+    if car_numbers[arg_walking_positions[1]]["target"] != -1:
+        parking_space[car_numbers[arg_walking_positions[1]]["target"]]["status"] = "empty"
+    del car_numbers[arg_walking_positions[1]]
+    del arg_walking_positions[1]
+    arg_serial.write("exit".encode())
+    print("차량이 출차했습니다.")
 
 
 # 경로 내의 특정 구역까지의 혼잡도를 감소시키는 함수
