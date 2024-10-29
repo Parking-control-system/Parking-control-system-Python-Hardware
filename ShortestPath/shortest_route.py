@@ -359,10 +359,10 @@ def set_goal(arg_car_number):
 def cal_route(space_id, car_id):
     parking_goal = get_walking_space_for_parking_space(car_numbers[car_id]["parking"])
     if car_numbers[car_id]["last_visited_space"]:
-        increase_congestion(car_numbers[car_id]["last_visited_space"], 100)  # 직전 방문 구역 혼잡도 증가
+        increase_congestion((car_numbers[car_id]["last_visited_space"], ), 100)  # 직전 방문 구역 혼잡도 증가
     route = a_star(congestion, space_id, parking_goal)
     if car_numbers[car_id]["last_visited_space"]:
-        decrease_congestion(car_numbers[car_id]["last_visited_space"], 100)  # 직전 방문 구역 혼잡도 감소
+        decrease_congestion((car_numbers[car_id]["last_visited_space"], ), 100)  # 직전 방문 구역 혼잡도 감소
 
     # 주차를 하는 차량의 경우 경로 상에 비어 있는 주차 구역 확인
     if car_numbers[car_id]["status"] == "entry":
