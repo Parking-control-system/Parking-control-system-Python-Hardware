@@ -209,12 +209,14 @@ def first_func(arg_vehicles):
     print("isFirst arg_vehicles", arg_vehicles)
     print("isFirst set_car_numbers", set_car_numbers)
     global isFirst
+    global car_numbers
+
     for key, value in set_car_numbers.items():
         for car_id, car_value in arg_vehicles.items():
             # 오차 범위 +- 10 이내 이면 같은 차량으로 판단
             if value[0] - 10 <= car_value["position"][0] <= value[0] + 10 and \
                     value[1] - 10 <= car_value["position"][1] <= value[1] + 10:
-                car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": [], "entry_time": time.time()}
+                car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": [], "entry_time": time.time(), "last_visited_space": None}
                 print("isFirst car_numbers", car_numbers)
                 break
 
@@ -374,6 +376,7 @@ def cal_route(space_id, car_id):
         parking_space[car_numbers[car_id]["parking"]]["status"] = "empty"  # 이전 주차 공간 비우기
         car_numbers[car_id]["parking"] = amend_parking_space  # 주차 공간 변경
         parking_space[amend_parking_space]["status"] = "target"  # 새로운 주차 공간 설정
+        parking_space[amend_parking_space]["car_number"] = car_id  # 새로운 주차 공간 설정
 
     increase_congestion(route)
     car_numbers[car_id]["route"] = route
@@ -456,8 +459,6 @@ def check_route(arg_route):
     for walking_space_id in arg_route:
         for parking_space_id in walking_space[walking_space_id]["parking_space"]:
             if parking_space_id != -1 and parking_space[parking_space_id]["status"] == "empty":
-                parking_space[parking_space_id]["status"] = "target"
-                parking_space[parking_space_id]["car_number"] = walking_space[walking_space_id]["car_number"]
                 return walking_space_id, parking_space_id
 
     return None, None
