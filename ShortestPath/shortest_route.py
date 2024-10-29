@@ -317,7 +317,8 @@ def set_walking_space(arg_walking_positions, arg_vehicles):
         # 경로에서 벗어난 경우
         if space_id not in car_numbers[car_id]["route"]:
             decrease_congestion(car_numbers[car_id]["route"])    # 이전 경로 혼잡도 감소
-            car_numbers[car_id]["last_visited_space"] = car_numbers[car_id]["route"][0]    # 직전 방문 구역 설정
+            if car_numbers[car_id]["route"]:
+                car_numbers[car_id]["last_visited_space"] = car_numbers[car_id]["route"][0]    # 직전 방문 구역 설정
             car_numbers[car_id]["route"] = []    # 경로 초기화
 
         elif space_id in car_numbers[car_id]["route"]:
@@ -355,9 +356,11 @@ def set_goal(arg_car_number):
 
 def cal_route(space_id, car_id):
     parking_goal = get_walking_space_for_parking_space(car_numbers[car_id]["parking"])
-    increase_congestion(car_numbers[car_id]["last_visited_space"], 100)  # 직전 방문 구역 혼잡도 증가
+    if car_numbers[car_id]["last_visited_space"]:
+        increase_congestion(car_numbers[car_id]["last_visited_space"], 100)  # 직전 방문 구역 혼잡도 증가
     route = a_star(congestion, space_id, parking_goal)
-    decrease_congestion(car_numbers[car_id]["last_visited_space"], 100)  # 직전 방문 구역 혼잡도 감소
+    if car_numbers[car_id]["last_visited_space"]:
+        decrease_congestion(car_numbers[car_id]["last_visited_space"], 100)  # 직전 방문 구역 혼잡도 감소
 
     # 주차를 하는 차량의 경우 경로 상에 비어 있는 주차 구역 확인
     if car_numbers[car_id]["status"] == "entry":
