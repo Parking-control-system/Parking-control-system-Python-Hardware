@@ -2,6 +2,7 @@ import heapq
 import time
 import json
 import serial
+import platform
 
 ### 변수 선언 ###
 
@@ -95,7 +96,8 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
     global vehicles_to_route
 
-    ser = serial.Serial(serial_port, 9600, timeout=1)
+    if platform.system() == "linux":
+        ser = serial.Serial(serial_port, 9600, timeout=1)
 
     print("최초 실행 시 설정된 차량 번호", set_car_numbers)
     while True:
@@ -175,7 +177,8 @@ def car_exit(arg_walking_positions, arg_serial):
         parking_space[car_numbers[arg_walking_positions[1]]["parking"]]["status"] = "empty"
     del car_numbers[arg_walking_positions[1]]
     del arg_walking_positions[1]
-    arg_serial.write("exit".encode())
+    if platform.system() == "linux":
+        arg_serial.write("exit".encode())
     print("차량이 출차했습니다.")
 
 

@@ -5,6 +5,7 @@ import json
 import serial
 import numpy as np
 import cv2
+import platform
 
 
 # 사각형의 중심 계산 함수
@@ -16,13 +17,13 @@ def calculate_center(points):
     return (center_x, center_y)
 
 
-def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, web_coordinates):
+def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, arg_web_coordinate):
     """
     사각형 내부의 특정 점을 웹 좌표 내 직사각형의 대응 위치로 변환
 
     :param point: (px, py) 사각형 내부의 특정 점의 좌표
     :param quadrilateral: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 네 꼭짓점 좌표 (좌상단, 우상단, 우하단, 좌하단 순서)
-    :param web_coordinates: 변환 대상 구역의 웹 좌표 내 직사각형 [(x1, y1), (x2, y2)] 좌상단 및 우하단 좌표
+    :param arg_web_coordinate: 변환 대상 구역의 웹 좌표 내 직사각형 [(x1, y1), (x2, y2)] 좌상단 및 우하단 좌표
     :return: 변환된 웹 내 점의 좌표 (x, y)
     """
 
@@ -30,7 +31,7 @@ def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, web_coor
     quad_pts = np.array(quadrilateral, dtype="float32")
 
     # 웹 좌표 내 직사각형 꼭짓점 설정
-    web_top_left, web_bottom_right = web_coordinates
+    web_top_left, web_bottom_right = arg_web_coordinate
     rect_pts = np.array([
         [web_top_left[0], web_top_left[1]],
         [web_bottom_right[0], web_top_left[1]],
@@ -88,8 +89,9 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
     global previous_serial_data
     sio.connect(uri)
     # 시리얼 통신 설정
-    ser = serial.Serial(serial_port, 9600, timeout=1)
-    ser2 = serial.Serial(serial_port2, 9600, timeout=1)
+    if platform.system() == "linux":
+        ser = serial.Serial(serial_port, 9600, timeout=1)
+        ser2 = serial.Serial(serial_port2, 9600, timeout=1)
 
     # walking_space의 키를 숫자형으로 변환
     with open(walking_space_path,
@@ -133,7 +135,7 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                     continue
                 transformed_x, transformed_y = transform_point_in_quadrilateral_to_rectangle(cars[value]["position"],
                                                                                              walking_space[id]["position"],
-                                                                                             web_coordinates)
+                                                                                             web_coordinates[id])
 
                 reflect_x, reflect_y = reflect_point_in_rectangle((transformed_x, transformed_y), web_coordinates[id])
                 moving_data[value] = {"position": (reflect_x, reflect_y)}
@@ -185,8 +187,9 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
 
             if arduino_data != previous_serial_data:
                 previous_serial_data = arduino_data
-                ser.write((str(arduino_data) + "\n").encode())
-                ser2.write((str(arduino_data) + "\n").encode())
+                if platform.system() == "linux":
+                    ser.write((str(arduino_data) + "\n").encode())
+                    ser2.write((str(arduino_data) + "\n").encode())
                 print("Data sent!")
 
         except queue.Empty:
@@ -196,21 +199,21 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             continue
 
 web_coordinates = {
-        1: [(9, 160), (10, 240)],
-        2: [(10, 160), (350, 240)],
-        3: [(350, 160), (710, 240)],
-        4: [(710, 160), (1200, 240)],
-        5: [(10, 240), (350, 495)],
-        6: [(710, 240), (1200, 495)],
-        7: [(10, 495), (350, 600)],
-        8: [(350, 495), (710, 600)],
-        9: [(710, 495), (1200, 600)],
-        10: [(10, 600), (350, 845)],
-        11: [(710, 600), (1200, 845)],
-        12: [(10, 845), (350, 920)],
-        13: [(350, 845), (710, 920)],
-        14: [(710, 845), (1200, 920)],
-        15: [(9, 845), (10, 920)]
+        1: [(-50, 100), (0, 200)],
+        2: [(0, 100), (300, 200)],
+        3: [(300, 100), (650, 200)],
+        4: [(650, 100), (1150, 200)],
+        5: [(10, 200), (300, 430)],
+        6: [(650, 200), (1150, 430)],
+        7: [(0, 430), (300, 550)],
+        8: [(350, 430), (650, 550)],
+        9: [(650, 430), (1150, 550)],
+        10: [(0, 550), (300, 780)],
+        11: [(650, 550), (1150, 780)],
+        12: [(0, 780), (300, 860)],
+        13: [(300, 780), (650, 860)],
+        14: [(650, 780), (1150, 860)],
+        15: [(-50, 780), (0, 860)]
 }
 
 previous_serial_data = None
