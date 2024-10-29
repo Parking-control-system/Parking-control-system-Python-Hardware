@@ -33,7 +33,7 @@ congestion = {
     15: {12: 1}
 }
 
-# 차량의 번호와 ID를 매핑
+# 차량의 번호와 ID를 매핑 (지속적으로 추적하며 상태를 관리할 차량 목록)
 car_numbers = {
     # status = entry, parking, exit
     # parking = 상태가 entry일 경우에는 주차할 구역, parking일 경우에는 주차한 구역
@@ -41,16 +41,20 @@ car_numbers = {
     # 0: {"car_number": "12가1234", "status": "entry", "parking": 21, "route": [], "parking_time": None, "entry_time": None},
 }
 
-# 이미 주차되어 있던 차량
+# 최초 실행 시 주차되어 있던 차량
 set_car_numbers = {}
 
 # 최초 실행 여부
 isFirst = True
 
+
 ### 함수 선언 ###
 
+# 쓰레드에서 실행 되는 메인 함수
 def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parking_space_path, walking_space_path, serial_port):
+    """쓰레드에서 실행 되는 메인 함수"""
 
+    # 처음 두 번의 경우는 트래커가 추적을 못하는 데이터이므로 버림
     yolo_data_queue.get()
     yolo_data_queue.get()
 
@@ -63,6 +67,7 @@ def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parkin
     # tracking 쓰레드 루프 시작
     event.set()
 
+    # 루프 실행
     roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port)
 
 
@@ -88,7 +93,6 @@ def init(yolo_data_queue):
 def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
     """차량 추적 데이터와 차량 번호 데이터를 받아오는 메인 함수"""
 
-    global isFirst
     global vehicles_to_route
 
     ser = serial.Serial(serial_port, 9600, timeout=1)
@@ -128,6 +132,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
         vehicles_to_route = {}  # 경로를 계산할 차량 초기화
 
+        # 차량 위치에 따라 주차 공간, 이동 공간, 차량 설정
         set_parking_space(parking_positions)
         set_walking_space(walking_positions, vehicles)
 

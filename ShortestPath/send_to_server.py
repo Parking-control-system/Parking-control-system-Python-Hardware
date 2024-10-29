@@ -16,26 +16,26 @@ def calculate_center(points):
     return (center_x, center_y)
 
 
-def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, rect_width, rect_height):
+def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, web_coordinates):
     """
-    사각형 내부의 특정 점을 좌우상하 반전한 직사각형의 대응 위치로 비율을 유지해 변환
+    사각형 내부의 특정 점을 웹 좌표 내 직사각형의 대응 위치로 변환
 
     :param point: (px, py) 사각형 내부의 특정 점의 좌표
     :param quadrilateral: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 네 꼭짓점 좌표 (좌상단, 우상단, 우하단, 좌하단 순서)
-    :param rect_width: 직사각형의 너비
-    :param rect_height: 직사각형의 높이
-    :return: 변환된 직사각형 내부의 점의 좌표 (x, y)
+    :param web_coordinates: 변환 대상 구역의 웹 좌표 내 직사각형 [(x1, y1), (x2, y2)] 좌상단 및 우하단 좌표
+    :return: 변환된 웹 내 점의 좌표 (x, y)
     """
 
     # 사각형의 네 꼭짓점 좌표 배열화
     quad_pts = np.array(quadrilateral, dtype="float32")
 
-    # 직사각형의 네 꼭짓점 좌표 정의 (좌상단, 우상단, 우하단, 좌하단 순서)
+    # 웹 좌표 내 직사각형 꼭짓점 설정
+    web_top_left, web_bottom_right = web_coordinates
     rect_pts = np.array([
-        [0, 0],
-        [rect_width, 0],
-        [rect_width, rect_height],
-        [0, rect_height]
+        [web_top_left[0], web_top_left[1]],
+        [web_bottom_right[0], web_top_left[1]],
+        [web_bottom_right[0], web_bottom_right[1]],
+        [web_top_left[0], web_bottom_right[1]]
     ], dtype="float32")
 
     # 투시 변환 행렬 계산
@@ -132,11 +132,10 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                     continue
                 transformed_x, transformed_y = transform_point_in_quadrilateral_to_rectangle(cars[value]["position"],
                                                                                              walking_space[id]["position"],
-                                                                                             web_coordinates[id][1][0] - web_coordinates[id][0][0],
-                                                                                             web_coordinates[id][1][1] - web_coordinates[id][0][1])
+                                                                                             web_coordinates)
 
                 reflect_x, reflect_y = reflect_point_in_rectangle((transformed_x, transformed_y), web_coordinates[id][1][0] - web_coordinates[id][0][0], web_coordinates[id][1][1] - web_coordinates[id][0][1])
-                moving_data[value] = {"position": (reflect_x + web_coordinates[id][0][0], reflect_y + web_coordinates[id][0][1])}
+                moving_data[value] = {"position": (reflect_x, reflect_y)}
 
             send_data["parking"] = parking_data
             send_data["moving"] = moving_data
@@ -149,33 +148,35 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             # Arduino로 전송할 데이터 생성
             arduino_data = {}
 
+            display_spaces = (2, 4, 7, 9, 12, 14)
+
             for car, value in data["cars"].items():
                 # 3개 이상의 경로가 있고 경로의 두 번째 값이 2, 4, 7, 9, 12, 14인 경우
                 route = value["route"]
-                if route and len(route) > 2 and route[1] in (2, 4, 7, 9, 12, 14):
+                if route and len(route) > 2 and route[1] in display_spaces:
                     display_area = walking_space[route[1]]
                     next_area = walking_space[route[2]]
-                    display_area_id = route[1]
+                    display_area_id =  display_spaces.index(route[1]) + 1
 
-                    current_center = calculate_center(display_area["position"])  # display_area의 중심점
+                    display_center = calculate_center(display_area["position"])  # display_area의 중심점
                     next_center = calculate_center(next_area["position"])  # next_area의 중심점
 
-                    # X와 Y의 차이를 절대값으로 계산
-                    delta_x = abs(current_center[0] - next_center[0])
-                    delta_y = abs(current_center[1] - next_center[1])
+                    # display_area와 next_area의 중심점 좌표 차이 계산
+                    delta_x = abs(display_center[0] - next_center[0])
+                    delta_y = abs(display_center[1] - next_center[1])
 
                     # X 좌표의 차이가 더 큰 경우
                     if delta_x > delta_y:
-                        if current_center[0] < next_center[0]:
+                        if display_center[0] < next_center[0]:
                             arduino_data[display_area_id] = {"car_number": car, "direction": "right"}
-                        elif current_center[0] > next_center[0]:
+                        elif display_center[0] > next_center[0]:
                             arduino_data[display_area_id] = {"car_number": car, "direction": "left"}
 
                     # Y 좌표의 차이가 더 큰 경우
                     else:
-                        if current_center[1] < next_center[1]:
+                        if display_center[1] < next_center[1]:
                             arduino_data[display_area_id] = {"car_number": car, "direction": "down"}
-                        elif current_center[1] > next_center[1]:
+                        elif display_center[1] > next_center[1]:
                             arduino_data[display_area_id] = {"car_number": car, "direction": "up"}
 
             print(f"Arduino data: {arduino_data}")
@@ -209,7 +210,7 @@ web_coordinates = {
         13: [(350, 845), (710, 920)],
         14: [(710, 845), (1200, 920)],
         15: [(9, 845), (10, 920)]
-    }
+}
 
 previous_serial_data = None
 
