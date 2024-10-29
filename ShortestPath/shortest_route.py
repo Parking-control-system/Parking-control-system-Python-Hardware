@@ -115,7 +115,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
         for vehicle_id, value in vehicles.items():
             # 차량 번호가 있는 차량 확인
             if vehicle_id in car_numbers:
-                check_position(vehicle_id, value, car_numbers, parking_positions, walking_positions)
+                check_position(vehicle_id, value, parking_positions, walking_positions)
                 car_numbers[vehicle_id]["position"] = value["position"]
 
             # 차량 번호가 없는 차 중 입차 구역에 있는 차량
@@ -248,7 +248,7 @@ def get_walking_space_for_parking_space(arg_parking_space):
 
 
 # 차량의 위치를 확인하여 주차 공간 또는 이동 공간에 할당하는 함수
-def check_position(vehicle_id, vehicle_value, car_numbers, arg_parking_positions, arg_walking_positions):
+def check_position(vehicle_id, vehicle_value, arg_parking_positions, arg_walking_positions):
     """차량의 위치를 확인하여 주차 공간 또는 이동 공간에 할당하는 함수"""
 
     px, py = vehicle_value["position"]
@@ -306,15 +306,15 @@ def set_walking_space(arg_walking_positions, arg_vehicles):
     for space_id, car_id in arg_walking_positions.items():
         # 주차 한 후 최초 이동 시
         if car_numbers[car_id]["status"] == "parking":
-            # 차량 설정
-            car_numbers[car_id]["status"] = "exit"
-            car_numbers[car_id]["route"] = []
-            car_numbers[car_id]["parking"] = -1 # 출구로 설정
-
             # 주차 구역 비우기
             parking_space[car_numbers[car_id]["parking"]]["status"] = "empty"
             parking_space[car_numbers[car_id]["parking"]]["car_number"] = None
             parking_space[car_numbers[car_id]["parking"]]["parking_time"] = None
+
+            # 차량 설정
+            car_numbers[car_id]["status"] = "exit"
+            car_numbers[car_id]["route"] = []
+            car_numbers[car_id]["parking"] = -1 # 출구로 설정
 
         # 경로에서 벗어난 경우
         if space_id not in car_numbers[car_id]["route"]:

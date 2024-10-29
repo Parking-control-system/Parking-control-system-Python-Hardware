@@ -49,20 +49,21 @@ def transform_point_in_quadrilateral_to_rectangle(point, quadrilateral, web_coor
     transformed_x, transformed_y = transformed_point[0][0]
     return float(transformed_x), float(transformed_y)
 
-def reflect_point_in_rectangle(point, width, height):
+def reflect_point_in_rectangle(point, rectangle_corners):
     """
-    직사각형 내부의 특정 점을 상하좌우 반전시킨 좌표로 변환합니다.
+    직사각형의 좌상단과 우하단 좌표만을 이용해 특정 점을 상하좌우 반전시킨 좌표로 변환합니다.
 
     :param point: (px, py) 특정 점의 좌표
-    :param width: 직사각형의 너비
-    :param height: 직사각형의 높이
+    :param rectangle_corners: [(x1, y1), (x2, y2)] 직사각형의 좌상단 및 우하단 좌표
     :return: 상하좌우 반전된 새로운 좌표 (x', y')
     """
     px, py = point
 
+    top_left, bottom_right = rectangle_corners
+
     # 직사각형 중심 계산
-    center_x = width / 2
-    center_y = height / 2
+    center_x = (top_left[0] + bottom_right[0]) / 2
+    center_y = (top_left[1] + bottom_right[1]) / 2
 
     # 상하좌우 반전
     reflected_x = 2 * center_x - px
@@ -134,7 +135,7 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                                                                                              walking_space[id]["position"],
                                                                                              web_coordinates)
 
-                reflect_x, reflect_y = reflect_point_in_rectangle((transformed_x, transformed_y), web_coordinates[id][1][0] - web_coordinates[id][0][0], web_coordinates[id][1][1] - web_coordinates[id][0][1])
+                reflect_x, reflect_y = reflect_point_in_rectangle((transformed_x, transformed_y), web_coordinates[id])
                 moving_data[value] = {"position": (reflect_x, reflect_y)}
 
             send_data["parking"] = parking_data
