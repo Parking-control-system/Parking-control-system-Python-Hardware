@@ -122,8 +122,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
             # 차량 번호가 없는 차 중 입차 구역에 있는 차량
             elif is_point_in_rectangle(value["position"], walking_space[15]["position"]):
-                entry(vehicle_id, car_number_data_queue, value["position"])
-                walking_positions[15] = vehicle_id
+                entry(vehicle_id, car_number_data_queue, value["position"], walking_positions)
 
         print("주차 구역 차량", parking_positions)
         print("이동 구역 차량", walking_positions)
@@ -182,7 +181,7 @@ def car_exit(arg_walking_positions, arg_serial):
     print("차량이 출차했습니다.")
 
 
-def entry(vehicle_id, data_queue, arg_position):
+def entry(vehicle_id, data_queue, arg_position, arg_walking_positions):
     """차량이 입차하는 함수"""
     print("입차하는 차량이 있습니다.")
     if data_queue.qsize() > 0:
@@ -193,6 +192,7 @@ def entry(vehicle_id, data_queue, arg_position):
         car_numbers[vehicle_id] = {"car_number": car_number, "status": "entry",
                                               "parking": set_goal(vehicle_id), "route": [], "entry_time": time.time(),
                                               "position": arg_position, "last_visited_space": None}
+        arg_walking_positions[15] = vehicle_id
         print("car_numbers", car_numbers)
 
 
@@ -287,6 +287,10 @@ def set_parking_space(arg_parking_positions):
             decrease_congestion(car_numbers[parking_space[space_id]["car_number"]]["route"])    # 이전 경로 혼잡도 감소
             car_numbers[parking_space[space_id]["car_number"]]["route"] = []    # 경로 초기화
 
+            # 입차한 차량이 원래 주차 예정이었던 구역 설정
+            parking_space[car_id]["status"] = "empty"
+            parking_space[car_id]["car_number"] = None
+
         # 주차 구역 설정
         parking_space[space_id]["status"] = "occupied"
         parking_space[space_id]["car_number"] = car_id
@@ -346,13 +350,14 @@ def set_walking_space(arg_walking_positions, arg_vehicles):
 
 
 # 주차할 공간을 지정하는 함수 (할당할 주차 공간의 순서 지정)
-def set_goal(arg_car_number):
+def set_goal(arg_car_id):
     """주차할 공간을 지정하는 함수"""
     print("set_goal")
     for i in (11, 10, 21, 13, 20, 12, 19, 18, 17, 7, 6, 9, 8, 16, 15, 0, 14, 1, 2, 3, 4, 5):    # 할당할 주차 구역 순서
         if parking_space[i]["status"] == "empty":
             parking_space[i]["status"] = "target"
-            parking_space[i]["car_number"] = arg_car_number
+            parking_space[i]["entry_time"] = car_numbers[arg_car_id]["entry_time"]
+            parking_space[i]["car_number"] = arg_car_id
             return i
 
     print("주차 공간이 없습니다.")
