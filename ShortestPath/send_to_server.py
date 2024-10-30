@@ -89,7 +89,7 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
     global previous_serial_data
     sio.connect(uri)
     # 시리얼 통신 설정
-    if platform.system() == "linux":
+    if platform.system() == "Linux":
         ser = serial.Serial(serial_port, 9600, timeout=1)
         ser2 = serial.Serial(serial_port2, 9600, timeout=1)
 
@@ -187,7 +187,7 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
 
             if arduino_data != previous_serial_data:
                 previous_serial_data = arduino_data
-                if platform.system() == "linux":
+                if platform.system() == "Linux":
                     ser.write((str(arduino_data) + "\n").encode())
                     ser2.write((str(arduino_data) + "\n").encode())
                 print("Data sent!")

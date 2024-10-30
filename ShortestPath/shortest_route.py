@@ -137,6 +137,12 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
         set_parking_space(parking_positions)
         set_walking_space(walking_positions, vehicles)
 
+        # 차량이 주차 되어 있지 않으나 occupied 인 주차 구역 비움
+        for space_id in parking_space:
+            if parking_space[space_id]["status"] == "occupied" and space_id not in parking_positions:
+                parking_space[space_id]["status"] = "empty"
+                parking_space[space_id]["car_id"] = None
+
         print("경로를 계산할 차량", vehicles_to_route)
 
         # 경로 계산
@@ -146,6 +152,8 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
         print("car_numbers", car_numbers)
         print("parking_space", parking_space)
         print(congestion)
+
+        update_car_numbers_in_parking_space()
 
         # 차량 데이터 전송 (cars: 차량 정보, parking: 주차 구역 정보, walking: 이동 중인 차량 id)
         route_data_queue.put({"cars": car_numbers, "parking": parking_space, "walking": walking_positions})
@@ -189,9 +197,11 @@ def entry(vehicle_id, data_queue, arg_position, arg_walking_positions):
         print(f"2번 쓰레드: 입출차기에서 수신한 차량 번호: {car_number}")
         if car_number == "[]":
             return
-        car_numbers[vehicle_id] = {"car_number": car_number, "status": "entry",
-                                              "parking": set_goal(vehicle_id), "route": [], "entry_time": time.time(),
+        car_numbers[vehicle_id] = {"car_id": car_number, "status": "entry",
+                                               "route": [], "entry_time": time.time(),
                                               "position": arg_position, "last_visited_space": None}
+        # car_numbers에 차량 정보를 세팅 한 후 set_goal 함수를 호출하여 주차할 구역을 지정
+        car_numbers[vehicle_id]["parking"] = set_goal(vehicle_id)
         arg_walking_positions[15] = vehicle_id
         print("car_numbers", car_numbers)
 
@@ -219,7 +229,7 @@ def first_func(arg_vehicles):
             # 오차 범위 +- 10 이내 이면 같은 차량으로 판단
             if value[0] - 10 <= car_value["position"][0] <= value[0] + 10 and \
                     value[1] - 10 <= car_value["position"][1] <= value[1] + 10:
-                car_numbers[car_id] = {"car_number": key, "status": "Parking", "parking": set_goal(car_id), "route": [], "entry_time": time.time(), "last_visited_space": None}
+                car_numbers[car_id] = {"car_id": key, "status": "Parking", "parking": None, "route": [], "entry_time": time.time(), "last_visited_space": None}
                 print("isFirst car_numbers", car_numbers)
                 break
 
@@ -281,19 +291,19 @@ def set_parking_space(arg_parking_positions):
             continue
 
         # 해당 구역에 주차 예정이 아니었던 차량이 들어온 경우
-        elif parking_space[space_id]["status"] == "target" and parking_space[space_id]["car_number"] != car_id:
+        elif parking_space[space_id]["status"] == "target" and parking_space[space_id]["car_id"] != car_id:
             # 원래 주차 예정이었던 차량 설정
-            car_numbers[parking_space[space_id]["car_number"]]["parking"] = set_goal(parking_space[space_id]["car_number"]) # 주차 공간 변경
-            decrease_congestion(car_numbers[parking_space[space_id]["car_number"]]["route"])    # 이전 경로 혼잡도 감소
-            car_numbers[parking_space[space_id]["car_number"]]["route"] = []    # 경로 초기화
+            car_numbers[parking_space[space_id]["car_id"]]["parking"] = set_goal(parking_space[space_id]["car_id"]) # 주차 공간 변경
+            decrease_congestion(car_numbers[parking_space[space_id]["car_id"]]["route"])    # 이전 경로 혼잡도 감소
+            car_numbers[parking_space[space_id]["car_id"]]["route"] = []    # 경로 초기화
 
             # 입차한 차량이 원래 주차 예정이었던 구역 설정
             parking_space[car_id]["status"] = "empty"
-            parking_space[car_id]["car_number"] = None
+            parking_space[car_id]["car_id"] = None
 
         # 주차 구역 설정
         parking_space[space_id]["status"] = "occupied"
-        parking_space[space_id]["car_number"] = car_id
+        parking_space[space_id]["car_id"] = car_id
         parking_space[space_id]["parking_time"] = time.time()
 
         # 차량 설정
@@ -315,7 +325,7 @@ def set_walking_space(arg_walking_positions, arg_vehicles):
         if car_numbers[car_id]["status"] == "parking":
             # 주차 구역 비우기
             parking_space[car_numbers[car_id]["parking"]]["status"] = "empty"
-            parking_space[car_numbers[car_id]["parking"]]["car_number"] = None
+            parking_space[car_numbers[car_id]["parking"]]["car_id"] = None
             parking_space[car_numbers[car_id]["parking"]]["parking_time"] = None
 
             # 차량 설정
@@ -357,7 +367,7 @@ def set_goal(arg_car_id):
         if parking_space[i]["status"] == "empty":
             parking_space[i]["status"] = "target"
             parking_space[i]["entry_time"] = car_numbers[arg_car_id]["entry_time"]
-            parking_space[i]["car_number"] = arg_car_id
+            parking_space[i]["car_id"] = arg_car_id
             return i
 
     print("주차 공간이 없습니다.")
@@ -384,7 +394,7 @@ def cal_route(space_id, car_id):
         parking_space[car_numbers[car_id]["parking"]]["status"] = "empty"  # 이전 주차 공간 비우기
         car_numbers[car_id]["parking"] = amend_parking_space  # 주차 공간 변경
         parking_space[amend_parking_space]["status"] = "target"  # 새로운 주차 공간 설정
-        parking_space[amend_parking_space]["car_number"] = car_id  # 새로운 주차 공간 설정
+        parking_space[amend_parking_space]["car_id"] = car_id  # 새로운 주차 공간 설정
 
     increase_congestion(route)
     car_numbers[car_id]["route"] = route
@@ -470,6 +480,17 @@ def check_route(arg_route):
                 return walking_space_id, parking_space_id
 
     return None, None
+
+
+def update_car_numbers_in_parking_space():
+    """전송 전에 parking_space에 car_number 업데이트"""
+    for space_id, space_data in parking_space.items():
+        car_id = space_data.get("car_id")
+        if car_id is not None and car_id in car_numbers:
+            parking_space[space_id]["car_number"] = car_numbers[car_id]["car_id"]
+        else:
+            parking_space[space_id]["car_number"] = None
+
 
 if __name__ == "__main__":
 

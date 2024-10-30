@@ -107,7 +107,7 @@ while True:
                 parking_space[zone_index] = {
                     "name": zone_names[zone_index],
                     "status": "empty",
-                    "car_number": None,
+                    "car_id": None,
                     "position": [list(point) for point in current_polygon]
                 }
             elif space_type == "walking_space":
