@@ -1,6 +1,7 @@
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from ultralytics import YOLO
 import cv2
+import platform
 
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
@@ -10,7 +11,10 @@ def detect_objects(video_source=0,
                    model_path='/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt'):
 
     model = YOLO(model_path)
-    cap = cv2.VideoCapture(video_source)
+    if platform.system() == "linux":
+        cap = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+    elif platform.system() == "Darwin":
+        cap = cv2.VideoCapture(video_source)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
@@ -68,4 +72,10 @@ def detect_objects(video_source=0,
 
 
 if __name__ == '__main__':
-    detect_objects()
+    video_source = 0
+    if platform.system() == 'Darwin':
+        model_path = '/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt'
+    elif platform.system() == 'Linux':
+        model_path = '/workspace/best.pt'
+
+    detect_objects(video_source, model_path)
