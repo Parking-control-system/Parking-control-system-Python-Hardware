@@ -96,7 +96,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
     global vehicles_to_route
 
-    if platform.system() == "linux":
+    if platform.system() == "Linux":
         ser = serial.Serial(serial_port, 9600, timeout=1)
 
     print("최초 실행 시 설정된 차량 번호", set_car_numbers)
@@ -191,7 +191,7 @@ def entry(vehicle_id, data_queue, arg_position):
         if car_number == "[]":
             return
         car_numbers[vehicle_id] = {"car_number": car_number, "status": "entry",
-                                              "parking": set_goal(car_number), "route": [], "entry_time": time.time(),
+                                              "parking": set_goal(vehicle_id), "route": [], "entry_time": time.time(),
                                               "position": arg_position, "last_visited_space": None}
         print("car_numbers", car_numbers)
 
@@ -219,7 +219,7 @@ def first_func(arg_vehicles):
             # 오차 범위 +- 10 이내 이면 같은 차량으로 판단
             if value[0] - 10 <= car_value["position"][0] <= value[0] + 10 and \
                     value[1] - 10 <= car_value["position"][1] <= value[1] + 10:
-                car_numbers[car_id] = {"car_number": key, "status": "entry", "parking": set_goal(key), "route": [], "entry_time": time.time(), "last_visited_space": None}
+                car_numbers[car_id] = {"car_number": key, "status": "Parking", "parking": set_goal(car_id), "route": [], "entry_time": time.time(), "last_visited_space": None}
                 print("isFirst car_numbers", car_numbers)
                 break
 
