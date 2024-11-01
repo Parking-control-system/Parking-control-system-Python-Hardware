@@ -1,3 +1,5 @@
+# 젯슨 나노로부터 UART 통신을 이용하여 차량 번호를 수신
+
 import serial
 import time
 import queue

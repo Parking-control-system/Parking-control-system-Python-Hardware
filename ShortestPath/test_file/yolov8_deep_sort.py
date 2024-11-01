@@ -8,7 +8,7 @@ WHITE = (255, 255, 255)
 
 # model_path: YOLO 모델 경로 수정 필요
 def detect_objects(video_source=0,
-                   model_path='/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt'):
+                   model_path='/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v6/weights/best.pt'):
 
     model = YOLO(model_path)
     if platform.system() == "linux":
@@ -19,7 +19,8 @@ def detect_objects(video_source=0,
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
     # DeepSORT 초기화
-    tracker = DeepSort(max_age=100, n_init=1, max_iou_distance=1)
+    # tracker = DeepSort(max_age=100, n_init=1, max_iou_distance=1)
+    tracker = DeepSort(max_age=70, n_init=1, max_iou_distance=1, nn_budget=150)
 
     while True:
         ret, frame = cap.read()
@@ -39,7 +40,7 @@ def detect_objects(video_source=0,
                 # 바운딩 박스 좌표 및 신뢰도 추출
                 print(data)
                 conf = float(data[4])  # 신뢰도 추출
-                if conf < 0.7:
+                if conf < 0.1:
                     continue
 
                 xmin, ymin, xmax, ymax = int(data[0]), int(data[1]), int(data[2]), int(data[3])
@@ -74,7 +75,7 @@ def detect_objects(video_source=0,
 if __name__ == '__main__':
     video_source = 0
     if platform.system() == 'Darwin':
-        model_path = '/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v3/weights/best.pt'
+        model_path = '/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v6/weights/best.pt'
     elif platform.system() == 'Linux':
         model_path = '/workspace/best.pt'
 

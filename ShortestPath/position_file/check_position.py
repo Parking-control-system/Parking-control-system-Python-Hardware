@@ -62,9 +62,12 @@ def check_point_in_space(point, parking_spaces_data, walking_space_data, buffer=
 def is_point_in_rectangle(point, rectangle):
     """
     특정 좌표가 사각형 내부에 있는지 확인하는 함수.
-    :param point: (x, y) 확인할 좌표
-    :param rectangle: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 꼭짓점 (좌상단, 우상단, 우하단, 좌하단 순서)
-    :return: bool 해당 점이 사각형 안에 있는지 여부
+
+    Args:
+        point: (x, y) 확인할 좌표
+        rectangle: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 꼭짓점 (좌상단, 우상단, 우하단, 좌하단 순서)
+    Return:
+        bool 해당 점이 사각형 안에 있는지 여부
     """
 
     def vector_cross_product(v1, v2):
@@ -105,7 +108,7 @@ def detect_objects_with_spaces(video_source, model_path, parking_file, walking_f
     walking_data = load_json(walking_file)
 
     # Initialize DeepSORT tracker
-    tracker = DeepSort(max_age=100, n_init=1, max_iou_distance=1)
+    tracker = DeepSort(max_age=70, n_init=5, max_iou_distance=1, nn_budget=150)
 
     while True:
         ret, frame = cap.read()
@@ -125,7 +128,7 @@ def detect_objects_with_spaces(video_source, model_path, parking_file, walking_f
         if detections.boxes is not None:
             for data in detections.boxes.data.tolist():
                 conf = float(data[4])
-                if conf < 0.7:
+                if conf < 0.1:
                     continue
                 xmin, ymin, xmax, ymax = int(data[0]), int(data[1]), int(data[2]), int(data[3])
                 label = int(data[5])

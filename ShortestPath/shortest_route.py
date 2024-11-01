@@ -1,3 +1,5 @@
+# 차량의 트래킹 정보를 받아 각 구역을 설정하고 경로를 계산하는 모듈
+
 import heapq
 import time
 import json
@@ -6,14 +8,26 @@ import platform
 
 ### 변수 선언 ###
 
-# 주차 구역의 좌표값
+# 주차 구역의 데이터
+# parking_id<int>: {
+#     name<str>: 주차 구역 이름
+#     status<str>: empty, occupied, target
+#     car_id<int>: 차량 아이디
+#     position<list>: 주차 구역의 좌표값 [좌상단, 우상단, 우하단, 좌하단]
+# }
 parking_space = {}
 
-# 이동 구역의 좌표값
+# 이동 구역의 데이터
+# walking_id<int>: {
+#     name<str>: 이동 구역 이름
+#     parking_space<list>: 이동 구역과 연결된 주차 구역
+#     position<list>: 이동 구역의 좌표값 [좌상단, 우상단, 우하단, 좌하단]
+# }
 walking_space = {}
 
 # 경로를 계산할 차량
-vehicles_to_route = {}  # {이동 구역 아이디: 차량 아이디}
+# walking_space_id<int>: car_id<int>
+vehicles_to_route = {}
 
 # 혼잡도
 congestion = {
@@ -35,29 +49,43 @@ congestion = {
 }
 
 # 차량의 번호와 ID를 매핑 (지속적으로 추적하며 상태를 관리할 차량 목록)
-car_numbers = {
-    # status = entry, parking, exit
-    # parking = 상태가 entry일 경우에는 주차할 구역, parking일 경우에는 주차한 구역
-    # id: {"car_number": "1234", "status": "entry", "parking": 0}
-    # 0: {"car_number": "12가1234", "status": "entry", "parking": 21, "route": [], "parking_time": None, "entry_time": None},
-}
+# car_id<int>: {
+#     status<str>: entry, parking, exit
+#     parking<int>: 주차할 구역의 id
+#     car_number<str>: 차량 번호
+#     route<list>: 경로
+#     entry_time<float>: 입차 시간
+#     parking_time<float>: 주차 시간
+#     last_visited_space<int>: 마지막 방문 구역
+# }
+car_numbers = {}
 
 # 최초 실행 시 주차되어 있던 차량
+# car_number<str>: position<list>
 set_car_numbers = {}
 
-# 최초 실행 여부
-isFirst = True
-
+ser = None  # 젯슨 나노에 연결된 시리얼 포트 (출차 신호 전달을 위해 사용)
 
 ### 함수 선언 ###
 
 # 쓰레드에서 실행 되는 메인 함수
 def main(yolo_data_queue, car_number_data_queue, route_data_queue, event, parking_space_path, walking_space_path, serial_port):
-    """쓰레드에서 실행 되는 메인 함수"""
+    """
+    쓰레드에서 호출 되어 실행되는 메인 함수로 각각의 함수를 순서대로 실행
 
-    # 처음 두 번의 경우는 트래커가 추적을 못하는 데이터이므로 버림
-    yolo_data_queue.get()
-    yolo_data_queue.get()
+    Args:
+        yolo_data_queue (Queue): yolo로 추적한 데이터를 받기 위한 큐
+        car_number_data_queue (Queue): uart로 수신 받은 차량 번호 데이터 큐
+        route_data_queue (Queue): send_to_server로 데이터를 전달하기 위한 큐
+        event (Event): 정지 시킨 yolo 함수를 실행 시키기 위한 이벤트 객체
+        parking_space_path (str): 주차 구역 데이터 경로
+        walking_space_path (str): 이동 구역 데이터 경로
+        serial_port (str): 시리얼 포트
+    """
+
+    # 사전에 주차 되어 있는 차량을 확인
+    for i in range(10):
+        yolo_data_queue.get()
 
     # parking_space, walking_space 설정
     initialize_data(parking_space_path, walking_space_path)
@@ -92,14 +120,15 @@ def init(yolo_data_queue):
 
 
 def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
-    """차량 추적 데이터와 차량 번호 데이터를 받아오는 메인 함수"""
+    """차량 추적 데이터와 차량 번호 데이터를 받아오는 함수"""
 
     global vehicles_to_route
 
-    if platform.system() == "Linux":
-        ser = serial.Serial(serial_port, 9600, timeout=1)
-
     print("최초 실행 시 설정된 차량 번호", set_car_numbers)
+
+    vehicles = yolo_data_queue.get()["vehicles"]
+    first_func(vehicles)
+
     while True:
         # yolo로 추적한 데이터 큐에서 가져오기
         vehicles = yolo_data_queue.get()["vehicles"]
@@ -108,10 +137,6 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
         parking_positions = {}  # 주차한 차량의 위치 정보 {구역 아이디: 차량 아이디}
         walking_positions = {}  # 이동 중인 차량의 위치 정보 {구역 아이디: 차량 아이디}
-
-        # 최초 실행의 경우 실행 전 주차된 차량 아이디 부여
-        if isFirst:
-            first_func(vehicles)
 
         # 감지된 차량들의 위치 확인
         for vehicle_id, value in vehicles.items():
@@ -129,7 +154,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
         # 차량 출차 확인
         if 1 in walking_positions:
-            car_exit(walking_positions, ser)
+            car_exit(walking_positions, serial_port)
 
         vehicles_to_route = {}  # 경로를 계산할 차량 초기화
 
@@ -162,7 +187,7 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
 
 def initialize_data(parking_space_path, walking_space_path):
-    """최초 실행 시 데이터 설정"""
+    """최초 실행 시 구역 데이터 설정"""
     global parking_space
     global walking_space
 
@@ -177,15 +202,21 @@ def initialize_data(parking_space_path, walking_space_path):
         walking_space = {int(key): value for key, value in walking_space.items()}  # 문자열 키를 숫자로 변환
 
 
-def car_exit(arg_walking_positions, arg_serial):
+def car_exit(arg_walking_positions, serial_port):
     """차량이 출차하는 함수"""
     print("출차하는 차량이 있습니다.")
+    global ser
+
     if car_numbers[arg_walking_positions[1]]["parking"] != -1:
         parking_space[car_numbers[arg_walking_positions[1]]["parking"]]["status"] = "empty"
     del car_numbers[arg_walking_positions[1]]
     del arg_walking_positions[1]
-    if platform.system() == "linux":
-        arg_serial.write("exit".encode())
+
+    # 시리얼 통신을 통해 출차 신호 전달
+    if platform.system() == "Linux":
+        if ser is None:
+            ser = serial.Serial(serial_port, 9600, timeout=1)
+        ser.write("exit".encode())
     print("차량이 출차했습니다.")
 
 
@@ -197,7 +228,7 @@ def entry(vehicle_id, data_queue, arg_position, arg_walking_positions):
         print(f"2번 쓰레드: 입출차기에서 수신한 차량 번호: {car_number}")
         if car_number == "[]":
             return
-        car_numbers[vehicle_id] = {"car_id": car_number, "status": "entry",
+        car_numbers[vehicle_id] = {"car_number": car_number, "status": "entry",
                                                "route": [], "entry_time": time.time(),
                                               "position": arg_position, "last_visited_space": None}
         # car_numbers에 차량 정보를 세팅 한 후 set_goal 함수를 호출하여 주차할 구역을 지정
@@ -221,7 +252,6 @@ def first_func(arg_vehicles):
     """사전에 주차 되어 있던 차량에 번호 부여"""
     print("isFirst arg_vehicles", arg_vehicles)
     print("isFirst set_car_numbers", set_car_numbers)
-    global isFirst
     global car_numbers
 
     for key, value in set_car_numbers.items():
@@ -229,11 +259,9 @@ def first_func(arg_vehicles):
             # 오차 범위 +- 10 이내 이면 같은 차량으로 판단
             if value[0] - 10 <= car_value["position"][0] <= value[0] + 10 and \
                     value[1] - 10 <= car_value["position"][1] <= value[1] + 10:
-                car_numbers[car_id] = {"car_id": key, "status": "Parking", "parking": None, "route": [], "entry_time": time.time(), "last_visited_space": None}
+                car_numbers[car_id] = {"car_number": key, "status": "Parking", "parking": None, "route": [], "entry_time": time.time(), "last_visited_space": None}
                 print("isFirst car_numbers", car_numbers)
                 break
-
-    isFirst = False
 
 
 # 경로 내의 구역의 혼잡도를 감소시키는 함수
@@ -298,8 +326,8 @@ def set_parking_space(arg_parking_positions):
             car_numbers[parking_space[space_id]["car_id"]]["route"] = []    # 경로 초기화
 
             # 입차한 차량이 원래 주차 예정이었던 구역 설정
-            parking_space[car_id]["status"] = "empty"
-            parking_space[car_id]["car_id"] = None
+            parking_space[car_numbers[car_id]["parking"]]["status"] = "empty"
+            parking_space[car_numbers[car_id]["parking"]]["car_id"] = None
 
         # 주차 구역 설정
         parking_space[space_id]["status"] = "occupied"
@@ -405,9 +433,12 @@ def cal_route(space_id, car_id):
 def is_point_in_rectangle(point, rectangle):
     """
     특정 좌표가 사각형 내부에 있는지 확인하는 함수.
-    :param point: (x, y) 확인할 좌표
-    :param rectangle: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 꼭짓점 (좌상단, 우상단, 우하단, 좌하단 순서)
-    :return: bool 해당 점이 사각형 안에 있는지 여부
+
+    Args:
+        point: (x, y) 확인할 좌표
+        rectangle: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 사각형의 꼭짓점 (좌상단, 우상단, 우하단, 좌하단 순서)
+    Return:
+        bool 해당 점이 사각형 안에 있는지 여부
     """
 
     def vector_cross_product(v1, v2):
@@ -444,13 +475,13 @@ def a_star(arg_congestion, arg_start, arg_goal):
     heapq.heappush(pq, (0, arg_start))
     came_from = {arg_start: None}
     cost_so_far = {arg_start: 0}
-    
+
     while pq:
         current = heapq.heappop(pq)[1]
-        
+
         if current == arg_goal:
             break
-        
+
         for next_node in arg_congestion[current]:
             new_cost = cost_so_far[current] + arg_congestion[current][next_node]
             if next_node not in cost_so_far or new_cost < cost_so_far[next_node]:
@@ -458,7 +489,7 @@ def a_star(arg_congestion, arg_start, arg_goal):
                 priority = new_cost + heuristic(arg_goal, next_node)
                 heapq.heappush(pq, (priority, next_node))
                 came_from[next_node] = current
-    
+
     # 경로를 역추적하여 반환
     current = arg_goal
     result_path = []
@@ -466,7 +497,7 @@ def a_star(arg_congestion, arg_start, arg_goal):
         result_path.append(current)
         current = came_from[current]
     result_path.reverse()
-    
+
     return result_path
 
 
@@ -487,7 +518,7 @@ def update_car_numbers_in_parking_space():
     for space_id, space_data in parking_space.items():
         car_id = space_data.get("car_id")
         if car_id is not None and car_id in car_numbers:
-            parking_space[space_id]["car_number"] = car_numbers[car_id]["car_id"]
+            parking_space[space_id]["car_number"] = car_numbers[car_id]["car_number"]
         else:
             parking_space[space_id]["car_number"] = None
 

@@ -1,3 +1,5 @@
+# 웹서버와 아두이노로 데이터를 정제하여 전송
+
 import socketio
 import time
 import queue
@@ -8,7 +10,7 @@ import cv2
 import platform
 
 
-# 사각형의 중심 계산 함수
+# 사각형의 중심점 계산 함수
 def calculate_center(points):
     x_coords = [p[0] for p in points]
     y_coords = [p[1] for p in points]
@@ -123,22 +125,23 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                     moving_data[id] = {"entry_time": value["entry_time"], "car_number": value["car_number"], "status": "entry"}
                 elif value["status"] == "exit":
                     moving_data[id] = {"entry_time": value["entry_time"], "car_number": value["car_number"], "status": "exit"}
-                print("movingData = ", moving_data)
+
+            print("movingData = ", moving_data)
 
             # 이동 중인 차량 좌표 계산
             walking_cars = data["walking"]
             print("walking_cars", walking_cars)
 
             for id, value in walking_cars.items():
-                # 입차 하는 차량은 제외
-                if id == 15:
+                # 차량 목록에 없는 경우 무시
+                if value not in cars:
                     continue
                 transformed_x, transformed_y = transform_point_in_quadrilateral_to_rectangle(cars[value]["position"],
                                                                                              walking_space[id]["position"],
                                                                                              web_coordinates[id])
 
                 reflect_x, reflect_y = reflect_point_in_rectangle((transformed_x, transformed_y), web_coordinates[id])
-                moving_data[value] = {"position": (reflect_x, reflect_y)}
+                moving_data[value]["position"] = (reflect_x, reflect_y)
 
             send_data["parking"] = parking_data
             send_data["moving"] = moving_data
@@ -151,15 +154,13 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             # Arduino로 전송할 데이터 생성
             arduino_data = {}
 
-            display_spaces = (2, 4, 7, 9, 12, 14)
-
-            for car, value in data["cars"].items():
+            for car_id, value in data["cars"].items():
                 # 3개 이상의 경로가 있고 경로의 두 번째 값이 2, 4, 7, 9, 12, 14인 경우
                 route = value["route"]
-                if route and len(route) > 2 and route[1] in display_spaces:
+                if route and len(route) > 2 and route[1] in DISPLAY_SPACE:
                     display_area = walking_space[route[1]]
                     next_area = walking_space[route[2]]
-                    display_area_id =  display_spaces.index(route[1]) + 1
+                    display_area_id =  DISPLAY_SPACE.index(route[1]) + 1
 
                     display_center = calculate_center(display_area["position"])  # display_area의 중심점
                     next_center = calculate_center(next_area["position"])  # next_area의 중심점
@@ -171,16 +172,16 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                     # X 좌표의 차이가 더 큰 경우
                     if delta_x > delta_y:
                         if display_center[0] < next_center[0]:
-                            arduino_data[display_area_id] = {"car_number": car, "direction": "right"}
+                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "right"}
                         elif display_center[0] > next_center[0]:
-                            arduino_data[display_area_id] = {"car_number": car, "direction": "left"}
+                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "left"}
 
                     # Y 좌표의 차이가 더 큰 경우
                     else:
                         if display_center[1] < next_center[1]:
-                            arduino_data[display_area_id] = {"car_number": car, "direction": "down"}
+                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "down"}
                         elif display_center[1] > next_center[1]:
-                            arduino_data[display_area_id] = {"car_number": car, "direction": "up"}
+                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "up"}
 
             print(f"Arduino data: {arduino_data}")
             print(f"Previous serial data: {previous_serial_data}")
@@ -217,6 +218,9 @@ web_coordinates = {
 }
 
 previous_serial_data = None
+
+# 경로를 안내하는 디스플레이의 구역 번호
+DISPLAY_SPACE = (2, 4, 7, 9, 12, 14)
 
 
 if __name__ == "__main__":
