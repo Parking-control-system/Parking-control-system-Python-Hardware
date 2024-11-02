@@ -124,6 +124,8 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
 
     global vehicles_to_route
 
+    ser = serial.Serial(serial_port, 9600, timeout=1)
+
     print("최초 실행 시 설정된 차량 번호", set_car_numbers)
 
     vehicles = yolo_data_queue.get()["vehicles"]
@@ -184,6 +186,15 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
         route_data_queue.put({"cars": car_numbers, "parking": parking_space, "walking": walking_positions})
 
         yolo_data_queue.task_done()  # 처리 완료 신호
+
+def exit(arg_walking_positions, arg_serial):
+    """차량이 출차하는 함수"""
+    if car_numbers[arg_walking_positions[1]]["target"] != -1:
+        parking_space[car_numbers[arg_walking_positions[1]]["target"]]["status"] = "empty"
+    del car_numbers[arg_walking_positions[1]]
+    del arg_walking_positions[1]
+    arg_serial.write("exit".encode())
+    print("차량이 출차했습니다.")
 
 
 def initialize_data(parking_space_path, walking_space_path):
@@ -306,6 +317,12 @@ def check_position(vehicle_id, vehicle_value, arg_parking_positions, arg_walking
             arg_walking_positions[key] = vehicle_id
             return
 
+    # 입차 체크
+    if is_point_in_polygon(px, py, walking_space[15]["position"]):
+        arg_walking_positions[15] = vehicle_id
+        print(f"차량 {vehicle_id}은 입차 중입니다.")
+        return
+
     print(f"차량 {vehicle_id}의 위치를 확인할 수 없습니다.")
 
 
@@ -385,7 +402,7 @@ def set_walking_space(arg_walking_positions, arg_vehicles):
 
         # 이동 중인 차량 위치 기록
         car_numbers[car_id]["position"] = arg_vehicles[car_id]["position"]
-
+        
 
 # 주차할 공간을 지정하는 함수 (할당할 주차 공간의 순서 지정)
 def set_goal(arg_car_id):
@@ -509,7 +526,6 @@ def check_route(arg_route):
         for parking_space_id in walking_space[walking_space_id]["parking_space"]:
             if parking_space_id != -1 and parking_space[parking_space_id]["status"] == "empty":
                 return walking_space_id, parking_space_id
-
     return None, None
 
 
