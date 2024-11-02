@@ -22,7 +22,7 @@ if platform.system() == "Darwin":
     SERIAL_PORT = "/dev/ttys035"
     # 아두이노 송신 시리얼 포트
     SERIAL_PORT2 = "/dev/ttys037"
-    # SERIAL_PORT3 = "/dev/ttyACM1"
+    SERIAL_PORT3 = "/dev/ttys037"
 elif platform.system() == "Linux":
     # 서버 주소 및 포트
     URI = "ws://192.168.0.41:5002"

@@ -25,9 +25,9 @@ parking_zone_names = [
 
 # 이동 구역의 이름 리스트 (Entry, Path, Exit, etc.)
 walking_zone_names = [
-    "Entry", "Path_2", "Path_3", "Path_4", "Path_5", "Path_6",
+    "Exit", "Path_2", "Path_3", "Path_4", "Path_5", "Path_6",
     "Path_7", "Path_8", "Path_9", "Path_10", "Path_11", "Path_12",
-    "Path_13", "Path_14", "Exit"
+    "Path_13", "Path_14", "Entry"
 ]
 
 # 마우스 콜백 함수
@@ -107,7 +107,7 @@ while True:
                 parking_space[zone_index] = {
                     "name": zone_names[zone_index],
                     "status": "empty",
-                    "car_number": None,
+                    "car_id": None,
                     "position": [list(point) for point in current_polygon]
                 }
             elif space_type == "walking_space":
