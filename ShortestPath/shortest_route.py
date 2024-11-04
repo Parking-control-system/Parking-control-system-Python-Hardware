@@ -333,9 +333,9 @@ def check_position(vehicle_id, vehicle_value):
             return
 
     # 입차 체크
-    if is_point_in_rectangle(px, py, walking_space[15]["position"]):
+    if is_point_in_rectangle((px, py), walking_space[15]["position"]):
         walking_positions[15] = vehicle_id
-        print(f"차량 {vehicle_id}은 입차 중입니다.")
+        print(f"차량 {vehicle_id}은 입차 중 입니다.")
         return
 
     print(f"차량 {vehicle_id}의 위치를 확인할 수 없습니다.")
