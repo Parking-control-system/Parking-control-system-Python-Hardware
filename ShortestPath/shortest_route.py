@@ -256,6 +256,7 @@ def entry(vehicle_id, data_queue, arg_position, arg_walking_positions):
         car_numbers[vehicle_id] = {"car_number": car_number, "status": "entry",
                                                "route": [], "entry_time": time.time(),
                                               "position": arg_position, "last_visited_space": None}
+        walking_positions[15] = vehicle_id
         # car_numbers에 차량 정보를 세팅 한 후 set_entry_target 함수를 호출하여 주차할 구역을 지정
         car_numbers[vehicle_id]["parking"] = set_target(vehicle_id)
         arg_walking_positions[15] = vehicle_id
@@ -316,9 +317,6 @@ def get_walking_space_for_parking_space(arg_parking_space):
 # 차량의 위치를 확인하여 주차 공간 또는 이동 공간에 할당하는 함수
 def check_position(vehicle_id, vehicle_value):
     """차량의 위치를 확인하여 주차 공간 또는 이동 공간에 할당하는 함수"""
-
-    global parking_positions
-    global walking_positions
 
     px, py = vehicle_value["position"]
 
