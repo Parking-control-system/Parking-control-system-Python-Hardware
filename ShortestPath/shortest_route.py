@@ -6,6 +6,7 @@ import time
 import json
 import serial
 import platform
+import copy
 
 ### 변수 선언 ###
 
@@ -198,8 +199,10 @@ def roop(yolo_data_queue, car_number_data_queue, route_data_queue, serial_port):
         # 데이터 전송 전에 parking_space에 car_number 정보 업데이트
         update_car_numbers_in_parking_space()
 
+        print(walking_positions)
+
         # 차량 데이터 전송 (cars: 차량 정보, parking: 주차 구역 정보, walking: 이동 중인 차량 id)
-        route_data_queue.put({"cars": car_numbers, "parking": parking_space, "walking": walking_positions})
+        route_data_queue.put(copy.deepcopy({"cars": car_numbers, "parking": parking_space, "walking": walking_positions}))
 
         del_target()    # 트래킹이 끊긴 경우를 대비하여 이동 중인 차량이 없으면 모든 혼잡도와 목표 제거
 
@@ -364,13 +367,11 @@ def set_parking_space():
         # 주차 구역 설정
         set_parking_space_car_id(space_id, car_id, "occupied")
 
-        # 3초 이상 주차한 경우 차량 설정
-        if time.time() - parking_space[space_id]["parking_time"] > 3:
-            car_numbers[car_id]["status"] = "parking"
-            car_numbers[car_id]["parking"] = space_id
-            decrease_congestion(car_numbers[car_id]["route"])    # 이전 경로 혼잡도 감소
-            car_numbers[car_id]["route"] = []
-            car_numbers[car_id]["last_visited_space"] = None
+        car_numbers[car_id]["status"] = "parking"
+        car_numbers[car_id]["parking"] = space_id
+        decrease_congestion(car_numbers[car_id]["route"])    # 이전 경로 혼잡도 감소
+        car_numbers[car_id]["route"] = []
+        car_numbers[car_id]["last_visited_space"] = None
 
 
 # 이동 공간 및 이동하는 차량 설정
@@ -380,16 +381,24 @@ def set_walking_space(arg_vehicles):
     for space_id, car_id in walking_positions.items():
         # 주차 한 후 최초 이동 시
         if car_numbers[car_id]["status"] == "parking":
+
+            # 차량 설정
+            if time.time() - parking_space[car_numbers[car_id]["parking"]]["parking_time"] > 5:
+                car_numbers[car_id]["status"] = "exit"
+                car_numbers[car_id]["parking"] = -1
+                car_numbers[car_id]["route"] = []
+                car_numbers[car_id]["last_visited_space"] = None
+
+            else:
+                car_numbers[car_id]["status"] = "entry"
+                car_numbers[car_id]["route"] = []
+                car_numbers[car_id]["last_visited_space"] = None
+
             # 주차 구역 비우기
             set_parking_space_car_id(car_numbers[car_id]["parking"], car_id, "empty")
 
-            # 차량 설정
-            car_numbers[car_id]["status"] = "exit"
-            car_numbers[car_id]["route"] = []
-            car_numbers[car_id]["parking"] = -1 # 출구로 설정
-
         # 경로에서 벗어난 경우
-        if space_id not in car_numbers[car_id]["route"] and car_numbers[car_id]["parking"] != -1:
+        if space_id not in car_numbers[car_id]["route"] and car_numbers[car_id]["route"]:
             decrease_congestion(car_numbers[car_id]["route"])    # 이전 경로 혼잡도 감소
             if car_numbers[car_id]["route"]:
                 car_numbers[car_id]["last_visited_space"] = car_numbers[car_id]["route"][0]    # 직전 방문 구역 설정
@@ -555,6 +564,11 @@ def del_target():
                 space_data["status"] = "empty"
                 del car_numbers[space_data["car_id"]]
                 space_data["car_id"] = None
+
+        # 이동 중인 차량이 없는 경우 주차 중인 아닌 차량 모두 제거
+        for car_id, car_data in car_numbers.items():
+            if car_data["status"] != "parking":
+                del car_numbers[car_id]
 
         # 혼잡도를 기본값으로 초기화
         for node, connections in congestion.items():
