@@ -564,7 +564,8 @@ def del_target():
                 space_data["car_id"] = None
 
         # 이동 중인 차량이 없는 경우 주차 중인 아닌 차량 모두 제거
-        for car_id, car_data in car_numbers.items():
+        for car_id in list(car_numbers.keys()):
+            car_data = car_numbers[car_id]
             if car_data["status"] != "parking":
                 del car_numbers[car_id]
 
