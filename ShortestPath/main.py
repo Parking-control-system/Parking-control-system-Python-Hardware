@@ -1,3 +1,5 @@
+# 각 쓰레드를 생성하고 변수를 부여하여 시작하는 메인 프로그램
+
 import threading
 import time
 import queue

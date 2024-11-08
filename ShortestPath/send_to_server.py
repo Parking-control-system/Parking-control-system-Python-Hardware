@@ -173,16 +173,16 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
                     # X 좌표의 차이가 더 큰 경우
                     if delta_x > delta_y:
                         if display_center[0] < next_center[0]:
-                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "right"}
-                        elif display_center[0] > next_center[0]:
                             arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "left"}
+                        elif display_center[0] > next_center[0]:
+                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "right"}
 
                     # Y 좌표의 차이가 더 큰 경우
                     else:
                         if display_center[1] < next_center[1]:
-                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "down"}
-                        elif display_center[1] > next_center[1]:
                             arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "up"}
+                        elif display_center[1] > next_center[1]:
+                            arduino_data[display_area_id] = {"car_number": value.get("car_number", "No Number"), "direction": "down"}
 
             print(f"Arduino data: {arduino_data}")
             print(f"Previous serial data: {previous_serial_data}")
@@ -221,7 +221,7 @@ web_coordinates = {
 previous_serial_data = None
 
 # 경로를 안내하는 디스플레이의 구역 번호
-DISPLAY_SPACE = (2, 4, 7, 9, 12, 14)
+DISPLAY_SPACE = (12, 7, 2, 14, 9, 4)
 
 
 if __name__ == "__main__":

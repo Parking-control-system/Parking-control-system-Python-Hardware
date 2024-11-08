@@ -46,14 +46,14 @@ def check_point_in_space(point, parking_spaces_data, walking_space_data, buffer=
         # 공간 이름을 출력하여 확인
         print(f"Checking {space_name} for point {point}")
         if is_point_in_rectangle(point, space["position"]):
-            print(f"Point {point} is inside {space["name"]}")
+            print(f"Point {point} is inside {space['name']}")
             return space["name"]
 
     for space_name, space in walking_space_data.items():
         # 공간 이름을 출력하여 확인
         print(f"Checking {space_name} for point {point}")
         if is_point_in_rectangle(point, space["position"]):
-            print(f"Point {point} is inside {space["name"]}")
+            print(f"Point {point} is inside {space['name']}")
             return space["name"]
 
     return None
@@ -177,7 +177,7 @@ def detect_objects_with_spaces(video_source, model_path, parking_file, walking_f
 if __name__ == '__main__':
     video_source = 0
     if platform.system() == 'Darwin':
-        model_path = '/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v5/weights/best.pt'
+        model_path = '/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v6/weights/best.pt'
     elif platform.system() == 'Linux':
         model_path = '/workspace/best.pt'
     parking_file = 'parking_space.json'
