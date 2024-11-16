@@ -249,6 +249,9 @@ def entry(vehicle_id, data_queue, arg_position, arg_walking_positions):
     """차량이 입차하는 함수"""
     print("입차하는 차량이 있습니다.")
     if data_queue.qsize() > 0:
+        # 가장 최근의 데이터만 사용
+        while (data_queue.qsize() != 1):
+            data_queue.get()
         car_number = data_queue.get()
         print(f"2번 쓰레드: 입출차기에서 수신한 차량 번호: {car_number}")
         if car_number == "[]":
@@ -278,7 +281,6 @@ def first_func(arg_vehicles):
     """사전에 주차 되어 있던 차량에 번호 부여"""
     print("isFirst arg_vehicles", arg_vehicles)
     print("isFirst set_car_numbers", set_car_numbers)
-    global car_numbers
 
     for key, value in set_car_numbers.items():
         for car_id, car_value in arg_vehicles.items():
