@@ -41,6 +41,22 @@ elif platform.system() == "Linux":
     # 아두이노 송신 시리얼 포트
     SERIAL_PORT2 = "/dev/ttyACM0"
     SERIAL_PORT3 = "/dev/ttyACM1"
+elif platform.system() == "Windows":
+    # 서버 주소 및 포트
+    URI = "http://127.0.0.1:5002"
+    # 주차 구역 좌표 파일 경로
+    PARKING_SPACE_PATH = "/workspace/Parking-control-system-Python-Hardware-main/ShortestPath/position_file/parking_space.json"
+    # 이동 구역 좌표 파일 경로
+    WALKING_SPACE_PATH = "/workspace/Parking-control-system-Python-Hardware-main/ShortestPath/position_file/walking_space.json"
+    # YOLO 모델 경로
+    MODEL_PATH = "/workspace/best.pt"
+    # 비디오 소스
+    VIDEO_SOURCE = 0
+    # 젯슨나노 송수신 시리얼 포트
+    SERIAL_PORT = "/dev/ttyTHS0"
+    # 아두이노 송신 시리얼 포트
+    SERIAL_PORT2 = "/dev/ttyACM0"
+    SERIAL_PORT3 = "/dev/ttyACM1"
 
 # 프로그램 종료 플래그
 stop_event = threading.Event()

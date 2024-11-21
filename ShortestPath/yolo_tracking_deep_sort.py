@@ -3,7 +3,6 @@
 import queue
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
-from torch.xpu import device
 from ultralytics import YOLO
 import platform
 import torch
@@ -15,10 +14,16 @@ def main(yolo_data_queue, event, model_path, video_source=0):
     device = None
     if platform.system() == "Darwin":
         cap = cv2.VideoCapture(video_source)
-
         device = torch.device("mps") if torch.backends.mps.is_available() else "cpu"
+
     elif platform.system() == "Linux":
         cap = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+        device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
+
+    elif platform.system() == "Windows":
+        cap = cv2.VideoCapture(video_source)
+        device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
@@ -35,8 +40,6 @@ def main(yolo_data_queue, event, model_path, video_source=0):
     while True:
         one_frame(cap, model, tracker, yolo_data_queue, device)
 
-    cap.release()
-    cv2.destroyAllWindows()
 
 def one_frame(cap, model, tracker, yolo_data_queue, device):
     """
