@@ -206,14 +206,19 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             walking_cars = data["walking"]  # 이동 중인 차량 데이터 {space_id: car_id}
             print("walking_cars", walking_cars)
 
-            for space_id, car_id in walking_cars.values():
-                # 차량 목록에 없는 경우 무시
-                if car_id not in cars:
-                    continue
+            for space_id, car_ids in walking_cars.items():  # car_ids는 리스트가 됨
+                for car_id in car_ids:
+                    # 차량 목록에 없는 경우 무시
+                    if car_id not in cars:
+                        continue
 
-                # 웹페이지에 표시할 좌표 계산
-                x, y = cal_web_position(space_id, car_id, cars)
-                moving_data[car_id]["position"] = (x, y)
+                    # 웹페이지에 표시할 좌표 계산
+                    x, y = cal_web_position(space_id, car_id, cars)
+                    if car_id not in moving_data:
+                        moving_data[car_id] = {"car_number": cars[car_id]["car_number"],
+                                               "status": cars[car_id]["status"],
+                                               "entry_time": cars[car_id]["entry_time"]}
+                    moving_data[car_id]["position"] = (x, y)
 
             # 전송할 데이터 세팅
             send_data["parking"] = parking_data
@@ -227,11 +232,14 @@ def send_to_server(uri, route_data_queue, parking_space_path, walking_space_path
             # Arduino로 전송할 데이터 초기화
             arduino_data.clear()
             # 차량의 경로에 따라 아두이노로 전송할 데이터 생성
+            processed_display_areas = set()  # 이미 처리된 디스플레이 구역을 추적
             for car_id, value in data["cars"].items():
-                # 3개 이상의 경로가 있고 경로의 두 번째 값이 2, 4, 7, 9, 12, 14인 경우
                 route = value["route"]
                 if route and len(route) > 2 and route[1] in DISPLAY_SPACE:
-                    set_arduino_data(route, value)
+                    display_area_id = DISPLAY_SPACE.index(route[1]) + 1
+                    if display_area_id not in processed_display_areas:
+                        set_arduino_data(route, value)
+                        processed_display_areas.add(display_area_id)
 
             print(f"Arduino data: {arduino_data}")
             print(f"Previous arduino data: {previous_arduino_data}")
