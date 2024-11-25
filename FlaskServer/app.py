@@ -1,4 +1,5 @@
 import time
+import platform
 
 from flask import Flask, render_template, Response, stream_with_context
 from flask_socketio import SocketIO, emit
@@ -29,4 +30,7 @@ def handle_disconnect():
 
 if __name__ == '__main__':
     # Flask-SocketIO는 일반 Flask와 다르게 socketio.run()을 사용해 서버를 실행합니다.
-    socketio.run(app, host='127.0.0.1', port=5002, debug=True)
+    if platform.system() == "Linux":
+        socketio.run(app, host='0.0.0.0', port=5002, debug=True)
+    else:
+        socketio.run(app, host='127.0.0.1', port=5002, debug=True)
