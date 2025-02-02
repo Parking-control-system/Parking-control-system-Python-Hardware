@@ -5,14 +5,25 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
 from ultralytics import YOLO
 import platform
+import torch
 
 def main(yolo_data_queue, event, model_path, video_source=0):
 
     model = YOLO(model_path)
+
+    device = None
     if platform.system() == "Darwin":
         cap = cv2.VideoCapture(video_source)
+        device = torch.device("mps") if torch.backends.mps.is_available() else "cpu"
+
     elif platform.system() == "Linux":
         cap = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+        device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
+
+    elif platform.system() == "Windows":
+        cap = cv2.VideoCapture(video_source)
+        device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 560)
 
@@ -21,18 +32,16 @@ def main(yolo_data_queue, event, model_path, video_source=0):
 
     # 사전에 주차 되어 있는 차량 데이터 전송
     for _ in range(11):
-        one_frame(cap, model, tracker, yolo_data_queue)
+        one_frame(cap, model, tracker, yolo_data_queue, device)
 
     # 사전 주차 되어 있는 차량의 번호판 입력 기다림
     event.wait()
 
     while True:
-        one_frame(cap, model, tracker, yolo_data_queue)
+        one_frame(cap, model, tracker, yolo_data_queue, device)
 
-    cap.release()
-    cv2.destroyAllWindows()
 
-def one_frame(cap, model, tracker, yolo_data_queue):
+def one_frame(cap, model, tracker, yolo_data_queue, device):
     """
     한 프레임을 처리하는 함수
     """
@@ -43,7 +52,7 @@ def one_frame(cap, model, tracker, yolo_data_queue):
         return
 
     # YOLOv8로 객체 탐지 수행
-    results = model(frame)
+    results = model(frame, device=device)
 
     # 탐지 결과 추출
     detections = results[0]  # 단일 이미지이므로 첫 번째 결과 사용
