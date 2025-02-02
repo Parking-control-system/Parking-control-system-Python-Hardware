@@ -6,6 +6,7 @@ import numpy as np
 import platform
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from ultralytics import YOLO
+import torch
 
 # Define colors
 RED = (0, 0, 255)
@@ -91,7 +92,7 @@ def is_point_in_rectangle(point, rectangle):
 
 
 # Function to detect objects and track using DeepSORT and YOLO
-def detect_objects_with_spaces(video_source, model_path, parking_file, walking_file):
+def detect_objects_with_spaces(video_source, model_path, parking_file, walking_file, device):
     # Load the YOLO model
     model = YOLO(model_path)
 
@@ -121,7 +122,7 @@ def detect_objects_with_spaces(video_source, model_path, parking_file, walking_f
         frame_with_spaces = draw_spaces(frame_with_spaces, parking_data, walking_data)
 
         # Perform object detection with YOLOv8
-        results = model(frame)
+        results = model(frame, device=device)
         detections = results[0]
         dets = []
 
@@ -176,11 +177,19 @@ def detect_objects_with_spaces(video_source, model_path, parking_file, walking_f
 # Example usage
 if __name__ == '__main__':
     video_source = 0
+    device = None
     if platform.system() == 'Darwin':
         model_path = '/Users/kyumin/python-application/carDetection/PCS-model/yolov8_v6/weights/best.pt'
+        device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+        print(f"Using device: {device}")
+
+        # Tensor를 Metal 장치로 이동
+        data = torch.randn(2, 3).to(device)
+        print(data)
+
     elif platform.system() == 'Linux':
         model_path = '/workspace/best.pt'
     parking_file = 'parking_space.json'
     walking_file = 'walking_space.json'
 
-    detect_objects_with_spaces(video_source, model_path, parking_file, walking_file)
+    detect_objects_with_spaces(video_source, model_path, parking_file, walking_file, device)

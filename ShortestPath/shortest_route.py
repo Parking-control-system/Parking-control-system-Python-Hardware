@@ -66,9 +66,9 @@ car_numbers = {}
 # car_number<str>: position<list>
 set_car_numbers = {}
 
-parking_positions = {}  # 주차한 차량의 위치 정보 {구역 아이디: 차량 아이디}
+parking_positions = {}  # 주차한 차량의 위치 정보 {구역 아이디: [차량 아이디]}
 
-walking_positions = {}  # 이동 중인 차량의 위치 정보 {구역 아이디: 차량 아이디}
+walking_positions = {}  # 이동 중인 차량의 위치 정보 {구역 아이디: [차량 아이디]}
 
 ser = None  # 젯슨 나노에 연결된 시리얼 포트 (출차 신호 전달을 위해 사용)
 
@@ -249,6 +249,9 @@ def entry(vehicle_id, data_queue, arg_position, arg_walking_positions):
     """차량이 입차하는 함수"""
     print("입차하는 차량이 있습니다.")
     if data_queue.qsize() > 0:
+        # 가장 최근의 데이터만 사용
+        while (data_queue.qsize() != 1):
+            data_queue.get()
         car_number = data_queue.get()
         print(f"2번 쓰레드: 입출차기에서 수신한 차량 번호: {car_number}")
         if car_number == "[]":
@@ -278,7 +281,6 @@ def first_func(arg_vehicles):
     """사전에 주차 되어 있던 차량에 번호 부여"""
     print("isFirst arg_vehicles", arg_vehicles)
     print("isFirst set_car_numbers", set_car_numbers)
-    global car_numbers
 
     for key, value in set_car_numbers.items():
         for car_id, car_value in arg_vehicles.items():
@@ -323,18 +325,24 @@ def check_position(vehicle_id, vehicle_value):
     # 주차 공간 체크
     for key, value in parking_space.items():
         if str(vehicle_id) in car_numbers and is_point_in_rectangle((px, py), value["position"]):
-            parking_positions[key] = vehicle_id
+            if key not in parking_positions:
+                parking_positions[key] = []
+            parking_positions[key].append(vehicle_id)
             return
 
     # 이동 공간 체크
     for key, value in walking_space.items():
         if str(vehicle_id) in car_numbers and is_point_in_rectangle((px, py), value["position"]):
-            walking_positions[key] = vehicle_id
+            if key not in walking_positions:
+                walking_positions[key] = []
+            walking_positions[key].append(vehicle_id)
             return
 
     # 입차 체크
     if is_point_in_rectangle((px, py), walking_space[15]["position"]):
-        walking_positions[15] = vehicle_id
+        if 15 not in walking_positions:
+            walking_positions[15] = []
+        walking_positions[15].append(vehicle_id)
         print(f"차량 {vehicle_id}은 입차 중 입니다.")
         return
 
@@ -347,29 +355,30 @@ def set_parking_space():
 
     global parking_positions
 
-    for space_id, car_id in parking_positions.items():
-        # 주차 중
-        if parking_space[space_id]["status"] == "occupied":
-            continue
+    for space_id, car_list in parking_positions.items():
+        for car_id in car_list:
+            # 주차 중
+            if parking_space[space_id]["status"] == "occupied":
+                continue
 
-        # 해당 구역에 주차 예정이 아니었던 차량이 들어온 경우
-        elif parking_space[space_id]["status"] == "target" and parking_space[space_id]["car_id"] != car_id:
-            # 원래 주차 예정이었던 차량 설정
-            car_numbers[parking_space[space_id]["car_id"]]["parking"] = set_target(parking_space[space_id]["car_id"]) # 주차 공간 변경
-            decrease_congestion(car_numbers[parking_space[space_id]["car_id"]]["route"])    # 이전 경로 혼잡도 감소
-            car_numbers[parking_space[space_id]["car_id"]]["route"] = []    # 경로 초기화
+            # 해당 구역에 주차 예정이 아니었던 차량이 들어온 경우
+            elif parking_space[space_id]["status"] == "target" and parking_space[space_id]["car_id"] != car_id:
+                # 원래 주차 예정이었던 차량 설정
+                car_numbers[parking_space[space_id]["car_id"]]["parking"] = set_target(parking_space[space_id]["car_id"]) # 주차 공간 변경
+                decrease_congestion(car_numbers[parking_space[space_id]["car_id"]]["route"])    # 이전 경로 혼잡도 감소
+                car_numbers[parking_space[space_id]["car_id"]]["route"] = []    # 경로 초기화
 
-            # 입차한 차량이 원래 주차 예정이었던 구역 비움
-            set_parking_space_car_id(car_numbers[car_id]["parking"], None, "empty")
+                # 입차한 차량이 원래 주차 예정이었던 구역 비움
+                set_parking_space_car_id(car_numbers[car_id]["parking"], None, "empty")
 
-        # 주차 구역 설정
-        set_parking_space_car_id(space_id, car_id, "occupied")
+            # 주차 구역 설정
+            set_parking_space_car_id(space_id, car_id, "occupied")
 
-        car_numbers[car_id]["status"] = "parking"
-        car_numbers[car_id]["parking"] = space_id
-        decrease_congestion(car_numbers[car_id]["route"])    # 이전 경로 혼잡도 감소
-        car_numbers[car_id]["route"] = []
-        car_numbers[car_id]["last_visited_space"] = None
+            car_numbers[car_id]["status"] = "parking"
+            car_numbers[car_id]["parking"] = space_id
+            decrease_congestion(car_numbers[car_id]["route"])    # 이전 경로 혼잡도 감소
+            car_numbers[car_id]["route"] = []
+            car_numbers[car_id]["last_visited_space"] = None
 
 
 # 이동 공간 및 이동하는 차량 설정
@@ -547,11 +556,9 @@ def check_route(arg_route):
 def update_car_numbers_in_parking_space():
     """전송 전에 parking_space에 car_number 업데이트"""
     for space_id, space_data in parking_space.items():
-        car_id = space_data.get("car_id")
-        if car_id is not None and car_id in car_numbers:
-            parking_space[space_id]["car_number"] = car_numbers[car_id]["car_number"]
-        else:
-            parking_space[space_id]["car_number"] = None
+        car_ids = parking_positions.get(space_id, [])
+        car_numbers_list = [car_numbers[car_id]["car_number"] for car_id in car_ids if car_id in car_numbers]
+        parking_space[space_id]["car_number"] = car_numbers_list if car_numbers_list else None
 
 
 def del_target():
